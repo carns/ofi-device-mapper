@@ -41,6 +41,13 @@ if test "x$PKG_CONFIG" == "x"; then
    AC_MSG_ERROR([Could not find pkg-config utility!])
 fi
 
+dnl require libfabric
+PKG_CHECK_MODULES([LIBFABRIC],[libfabric],[],
+   [AC_MSG_ERROR([Could not find working libfabric installation!])])
+LIBS="$LIBFABRIC_LIBS $LIBS"
+CPPFLAGS="$LIBFABRIC_CFLAGS $CPPFLAGS"
+CFLAGS="$LIBFABRIC_CFLAGS $CFLAGS"
+
 AC_ARG_ENABLE(coverage,
               [AS_HELP_STRING([--enable-coverage],[Enable code coverage @<:@default=no@:>@])],
               [case "${enableval}" in
