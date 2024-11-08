@@ -17,17 +17,28 @@ struct options {
     char prov_name[256];
 };
 
+struct nic {
+    char iface_name[256];
+    unsigned int bus_id;
+    unsigned int device_id;
+    unsigned int function_id;
+};
+
+#if 0
 static int print_short_info(struct fi_info* info);
+#endif
 static int parse_args(int argc, char** argv, struct options* opts);
+static int find_nics(struct options* opts, int* num_nics, struct nic** nics);
 static void usage(void);
 
 int main(int argc, char** argv)
 {
     pid_t           my_pid;
-    struct fi_info* info;
-    struct fi_info* hints;
-    int             ret;
     struct options  opts;
+    struct nic*     nics = NULL;
+    int             num_nics;
+    int ret;
+    int i;
 
     ret = parse_args(argc, argv, &opts);
     if (ret < 0) {
@@ -37,42 +48,22 @@ int main(int argc, char** argv)
 
     /* local process info */
     my_pid = getpid();
-    printf("This process pid: %d\n", (int)my_pid);
+    printf("PID:\n\t%d\n", (int)my_pid);
 
-    /* ofi info */
-    hints = fi_allocinfo();
-    assert(hints);
-    /* These are required as input if we want to filter the results; they
-     * indicate functionality that the caller is prepared to provide.  This
-     * is just a query, so we want wildcard options except that we must disable
-     * deprecated memory registration modes.
-     */
-    hints->mode = ~0;
-    hints->domain_attr->mode = ~0;
-    hints->domain_attr->mr_mode = ~3;
-    /* Indicate that we only want results matching a particular provider
-     * (e.g., cxi or verbs)
-     */
-    hints->fabric_attr->prov_name     = strdup(opts.prov_name);
-    /* Depending on the provider we may also need to set the protocol we
-     * want; some providers advertise more than one.
-     */
-    if(strcmp(opts.prov_name, "cxi") == 0) {
-        hints->ep_attr->protocol = FI_PROTO_CXI;
+    /* get an array of network interfaces with device ids */
+    ret = find_nics(&opts, &num_nics, &nics);
+    if(ret < 0) {
+        fprintf(stderr, "Error: unable to find network cards.\n");
+        return(-1);
     }
 
-    /* This call will populate info with a linked list that can be traversed
-     * to inspect what's available.
-     */
-    ret = fi_getinfo(FI_VERSION(FI_MAJOR_VERSION, FI_MINOR_VERSION), NULL, NULL,
-                     0, hints, &info);
-    if (ret != 0) {
-        fprintf(stderr, "fi_getinfo: %d (%s)\n", ret, fi_strerror(-ret));
-        return (ret);
+    printf("Network cards:\n");
+    for(i=0; i<num_nics; i++) {
+        printf("\t%s\n", nics[i].iface_name);
     }
-    print_short_info(info);
-    fi_freeinfo(info);
-    fi_freeinfo(hints);
+
+    if(nics)
+        free(nics);
 
     return (0);
 }
@@ -106,7 +97,7 @@ static int parse_args(int argc, char** argv, struct options* opts)
     return(0);
 }
 
-
+#if 0
 /* derived from info.c in libfabric (BSD license) */
 static int print_short_info(struct fi_info* info)
 {
@@ -126,4 +117,75 @@ static int print_short_info(struct fi_info* info)
                fi_tostr(&cur->ep_attr->protocol, FI_TYPE_PROTOCOL));
     }
     return EXIT_SUCCESS;
+}
+#endif
+
+static int find_nics(struct options* opts, int* num_nics, struct nic** nics) {
+    struct fi_info* info;
+    struct fi_info* hints;
+    struct fi_info* cur;
+    int             ret;
+    int i;
+
+    /* ofi info */
+    hints = fi_allocinfo();
+    assert(hints);
+    /* These are required as input if we want to filter the results; they
+     * indicate functionality that the caller is prepared to provide.  This
+     * is just a query, so we want wildcard options except that we must disable
+     * deprecated memory registration modes.
+     */
+    hints->mode = ~0;
+    hints->domain_attr->mode = ~0;
+    hints->domain_attr->mr_mode = ~3;
+    /* Indicate that we only want results matching a particular provider
+     * (e.g., cxi or verbs)
+     */
+    hints->fabric_attr->prov_name     = strdup(opts->prov_name);
+    /* Depending on the provider we may also need to set the protocol we
+     * want; some providers advertise more than one.
+     */
+    if(strcmp(opts->prov_name, "cxi") == 0) {
+        hints->ep_attr->protocol = FI_PROTO_CXI;
+    }
+
+    /* This call will populate info with a linked list that can be traversed
+     * to inspect what's available.
+     */
+    ret = fi_getinfo(FI_VERSION(FI_MAJOR_VERSION, FI_MINOR_VERSION), NULL, NULL,
+                     0, hints, &info);
+    if (ret != 0) {
+        fprintf(stderr, "fi_getinfo: %d (%s)\n", ret, fi_strerror(-ret));
+        return (ret);
+    }
+    // print_short_info(info);
+
+    /* loop through results and see how many report PCI bus information */
+    *num_nics = 0;
+    for (cur = info; cur; cur = cur->next) {
+        if(cur->nic && cur->nic->bus_attr &&
+        cur->nic->bus_attr->bus_type == FI_BUS_PCI)
+            (*num_nics)++;
+    }
+
+    *nics = calloc(*num_nics, sizeof(*nics));
+    assert(*nics);
+
+    /* loop through results again and populate array */
+    i=0;
+    for (cur = info; cur; cur = cur->next) {
+        if(cur->nic && cur->nic->bus_attr &&
+        cur->nic->bus_attr->bus_type == FI_BUS_PCI) {
+            assert(i<*num_nics);
+            strcpy((*nics)[i].iface_name, cur->domain_attr->name);
+            /* TODO: other stuff */
+            i++;
+        }
+    }
+
+    fi_freeinfo(info);
+    fi_freeinfo(hints);
+
+    return(0);
+
 }
