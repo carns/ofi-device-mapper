@@ -54,6 +54,12 @@ int main(int argc, char** argv)
      * (e.g., cxi or verbs)
      */
     hints->fabric_attr->prov_name     = strdup(opts.prov_name);
+    /* Depending on the provider we may also need to set the protocol we
+     * want; some providers advertise more than one.
+     */
+    if(strcmp(opts.prov_name, "cxi") == 0) {
+        hints->ep_attr->protocol = FI_PROTO_CXI;
+    }
 
     /* This call will populate info with a linked list that can be traversed
      * to inspect what's available.
