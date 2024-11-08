@@ -13,7 +13,13 @@
 #include <rdma/fabric.h>
 #include <rdma/fi_errno.h>
 
+struct options {
+    char prov_name[256];
+};
+
 static int print_short_info(struct fi_info* info);
+static int parse_args(int argc, char** argv, struct options* opts);
+static void usage(void);
 
 int main(int argc, char** argv)
 {
@@ -21,6 +27,13 @@ int main(int argc, char** argv)
     struct fi_info* info;
     struct fi_info* hints;
     int             ret;
+    struct options  opts;
+
+    ret = parse_args(argc, argv, &opts);
+    if (ret < 0) {
+        usage();
+        exit(EXIT_FAILURE);
+    }
 
     /* local process info */
     my_pid = getpid();
@@ -29,15 +42,22 @@ int main(int argc, char** argv)
     /* ofi info */
     hints = fi_allocinfo();
     assert(hints);
-    hints->mode                = FI_ASYNC_IOV;
-    hints->ep_attr->type       = FI_EP_RDM;
-    hints->caps                = FI_MSG | FI_TAGGED | FI_RMA | FI_DIRECTED_RECV;
-    hints->tx_attr->msg_order  = FI_ORDER_NONE;
-    hints->tx_attr->comp_order = FI_ORDER_NONE;
-    hints->tx_attr->op_flags   = FI_INJECT_COMPLETE;
-    hints->domain_attr->resource_mgmt = FI_RM_ENABLED;
-    hints->fabric_attr->prov_name     = strdup("tcp");
+    /* These are required as input if we want to filter the results; they
+     * indicate functionality that the caller is prepared to provide.  This
+     * is just a query, so we want wildcard options except that we must disable
+     * deprecated memory registration modes.
+     */
+    hints->mode = ~0;
+    hints->domain_attr->mode = ~0;
+    hints->domain_attr->mr_mode = ~3;
+    /* Indicate that we only want results matching a particular provider
+     * (e.g., cxi or verbs)
+     */
+    hints->fabric_attr->prov_name     = strdup(opts.prov_name);
 
+    /* This call will populate info with a linked list that can be traversed
+     * to inspect what's available.
+     */
     ret = fi_getinfo(FI_VERSION(FI_MAJOR_VERSION, FI_MINOR_VERSION), NULL, NULL,
                      0, hints, &info);
     if (ret != 0) {
@@ -51,7 +71,37 @@ int main(int argc, char** argv)
     return (0);
 }
 
-/* from info.c in libfabric (BSD license) */
+static void usage(void)
+{
+    fprintf(stderr, "Usage: ofi-dm-query -p <provider_name>\n");
+    return;
+}
+
+static int parse_args(int argc, char** argv, struct options* opts)
+{
+    int opt;
+    int ret;
+
+    memset(opts, 0, sizeof(*opts));
+
+    while ((opt = getopt(argc, argv, "p:")) != -1) {
+        switch (opt) {
+        case 'p':
+            ret = sscanf(optarg, "%s", opts->prov_name);
+            if (ret != 1) return (-1);
+            break;
+        default:
+            return (-1);
+        }
+    }
+
+    if (strlen(opts->prov_name) == 0) return (-1);
+
+    return(0);
+}
+
+
+/* derived from info.c in libfabric (BSD license) */
 static int print_short_info(struct fi_info* info)
 {
     struct fi_info* cur;
