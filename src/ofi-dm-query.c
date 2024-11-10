@@ -59,7 +59,7 @@ int main(int argc, char** argv)
 
     printf("Network cards:\n");
     for(i=0; i<num_nics; i++) {
-        printf("\t%s\n", nics[i].iface_name);
+        printf("\t%s %u %u %u\n", nics[i].iface_name, nics[i].bus_id, nics[i].device_id, nics[i].function_id);
     }
 
     if(nics)
@@ -178,7 +178,9 @@ static int find_nics(struct options* opts, int* num_nics, struct nic** nics) {
         cur->nic->bus_attr->bus_type == FI_BUS_PCI) {
             assert(i<*num_nics);
             strcpy((*nics)[i].iface_name, cur->domain_attr->name);
-            /* TODO: other stuff */
+            (*nics)[i].bus_id = cur->nic->bus_attr->attr.pci.bus_id;
+            (*nics)[i].device_id = cur->nic->bus_attr->attr.pci.device_id;
+            (*nics)[i].function_id = cur->nic->bus_attr->attr.pci.function_id;
             i++;
         }
     }
