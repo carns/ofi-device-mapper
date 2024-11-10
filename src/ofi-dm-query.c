@@ -4,11 +4,13 @@
  * See COPYRIGHT in top-level directory.
  */
 
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <assert.h>
 #include <string.h>
+#include <sched.h>
 
 #include <rdma/fabric.h>
 #include <rdma/fi_errno.h>
@@ -32,7 +34,7 @@ static int print_short_info(struct fi_info* info);
 static int parse_args(int argc, char** argv, struct options* opts);
 static int find_nics(struct options* opts, int* num_nics, struct nic** nics);
 static void usage(void);
-static int find_cpus(struct options* opts, int* num_cpus, int** cpus, int* current_cpu);
+static int find_cores(struct options* opts, int* num_cores, int* current_core);
 
 int main(int argc, char** argv)
 {
@@ -40,9 +42,8 @@ int main(int argc, char** argv)
     struct options  opts;
     struct nic*     nics = NULL;
     int             num_nics;
-    int             num_cpus;
-    int*            cpus = NULL;
-    int             current_cpu;
+    int             num_cores;
+    int             current_core;
     int ret;
     int i;
 
@@ -69,7 +70,7 @@ int main(int argc, char** argv)
     }
 
     /* get array of cpu ids */
-    ret = find_cpus(&opts, &num_cpus, &cpus, &current_cpu);
+    ret = find_cores(&opts, &num_cores, &current_core);
     if(ret < 0) {
         fprintf(stderr, "Error: unable to find CPUs.\n");
         return(-1);
@@ -77,8 +78,6 @@ int main(int argc, char** argv)
 
     if(nics)
         free(nics);
-    if(cpus)
-        free(cpus);
 
     return (0);
 }
@@ -207,15 +206,15 @@ static int find_nics(struct options* opts, int* num_nics, struct nic** nics) {
 
 }
 
-static int find_cpus(struct options* opts, int* num_cpus, int** cpus, int* current_cpu)
+static int find_cores(struct options* opts, int* num_cores, int* current_core)
 {
     hwloc_topology_t topology;
-#if 0
-    int depth;
+    hwloc_cpuset_t last_cpu;
+    hwloc_const_bitmap_t cset_all;
+    int sched_cpu;
+    int ret;
+    hwloc_obj_t obj;
     unsigned i;
-    char string[128];
-    int topodepth;
-#endif
 
     /* Allocate and initialize topology object. */
     hwloc_topology_init(&topology);
@@ -230,28 +229,36 @@ static int find_cpus(struct options* opts, int* num_cpus, int** cpus, int* curre
     /* Perform the topology detection. */
     hwloc_topology_load(topology);
 
-#if 0
-    /* Optionally, get some additional topology information
-       in case we need the topology depth later. */
-    topodepth = hwloc_topology_get_depth(topology);
+    /* query all PUs */
+    cset_all = hwloc_topology_get_complete_cpuset(topology);
+    *num_cores = hwloc_bitmap_weight(cset_all);
 
-    /*****************************************************************
-     * First example:
-     * Walk the topology with an array style, from level 0 (always
-     * the system level) to the lowest level (always the proc level).
-     *****************************************************************/
-    for (depth = 0; depth < topodepth; depth++) {
-        printf("*** Objects at level %d\n", depth);
-        for (i = 0; i < hwloc_get_nbobjs_by_depth(topology, depth);
-             i++) {
-            hwloc_obj_type_snprintf(string, sizeof(string),
-				    hwloc_get_obj_by_depth(topology, depth, i), 0);
-            printf("Index %u: %s\n", i, string);
-        }
+    printf("num_cores: %d\n", *num_cores);
+
+    /* query where this process is running */
+    last_cpu = hwloc_bitmap_alloc();
+    if(!last_cpu) {
+        fprintf(stderr, "hwloc_bitmap_alloc() failure.\n");
+        return(-1);
     }
-#endif
+    ret = hwloc_get_last_cpu_location(topology, last_cpu, HWLOC_CPUBIND_THREAD);
+    if(ret < 0) {
+        fprintf(stderr, "hwloc_get_last_cpu_location() failure.\n");
+        return(-1);
+    }
+    /* print the logical number of the PU where that thread runs */
+    /* extract the PU OS index from the bitmap */
+    i = hwloc_bitmap_first(last_cpu);
+    obj = hwloc_get_pu_obj_by_os_index(topology, i);
+    printf("thread is now running on PU logical index %u (OS/physical index %u)\n",
+	 obj->logical_index, i);
 
-    /* Destroy topology object. */
+
+    /* sanity check vs sched_getcpu */
+    sched_cpu = sched_getcpu();
+    printf("sched_cpu: %d\n", sched_cpu);
+
+    hwloc_bitmap_free(last_cpu);
     hwloc_topology_destroy(topology);
 
     return(0);
