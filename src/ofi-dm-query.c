@@ -34,16 +34,16 @@ static int print_short_info(struct fi_info* info);
 static int parse_args(int argc, char** argv, struct options* opts);
 static int find_nics(struct options* opts, int* num_nics, struct nic** nics);
 static void usage(void);
-static int find_cores(struct options* opts, int* num_cores, int* current_core);
+static int find_cores(struct options* opts, pid_t* pid, int* num_cores, int* current_core);
 
 int main(int argc, char** argv)
 {
-    pid_t           my_pid;
     struct options  opts;
     struct nic*     nics = NULL;
     int             num_nics;
     int             num_cores;
     int             current_core;
+    pid_t pid;
     int ret;
     int i;
 
@@ -53,10 +53,6 @@ int main(int argc, char** argv)
         exit(EXIT_FAILURE);
     }
 
-    /* local process info */
-    my_pid = getpid();
-    printf("PID:\n\t%d\n", (int)my_pid);
-
     /* get an array of network interfaces with device ids */
     ret = find_nics(&opts, &num_nics, &nics);
     if(ret < 0) {
@@ -64,16 +60,21 @@ int main(int argc, char** argv)
         return(-1);
     }
 
-    printf("Network cards:\n");
-    for(i=0; i<num_nics; i++) {
-        printf("\t%s %u %u %u\n", nics[i].iface_name, nics[i].bus_id, nics[i].device_id, nics[i].function_id);
-    }
-
     /* get array of cpu ids */
-    ret = find_cores(&opts, &num_cores, &current_core);
+    ret = find_cores(&opts, &pid, &num_cores, &current_core);
     if(ret < 0) {
         fprintf(stderr, "Error: unable to find CPUs.\n");
         return(-1);
+    }
+
+    printf("CPU information:\n");
+    printf("\tPID %d running on core %d of %d\n", (int)pid, current_core, num_cores);
+
+    printf("\n");
+    printf("Network cards:\n");
+    printf("\t<name> <bus ID> <device ID> <function id>\n");
+    for(i=0; i<num_nics; i++) {
+        printf("\t%s %u %u %u\n", nics[i].iface_name, nics[i].bus_id, nics[i].device_id, nics[i].function_id);
     }
 
     if(nics)
@@ -206,15 +207,15 @@ static int find_nics(struct options* opts, int* num_nics, struct nic** nics) {
 
 }
 
-static int find_cores(struct options* opts, int* num_cores, int* current_core)
+static int find_cores(struct options* opts, pid_t* pid, int* num_cores, int* current_core)
 {
     hwloc_topology_t topology;
     hwloc_cpuset_t last_cpu;
     hwloc_const_bitmap_t cset_all;
-    int sched_cpu;
     int ret;
-    hwloc_obj_t obj;
-    unsigned i;
+
+    /* local process info */
+    *pid = getpid();
 
     /* Allocate and initialize topology object. */
     hwloc_topology_init(&topology);
@@ -233,8 +234,6 @@ static int find_cores(struct options* opts, int* num_cores, int* current_core)
     cset_all = hwloc_topology_get_complete_cpuset(topology);
     *num_cores = hwloc_bitmap_weight(cset_all);
 
-    printf("num_cores: %d\n", *num_cores);
-
     /* query where this process is running */
     last_cpu = hwloc_bitmap_alloc();
     if(!last_cpu) {
@@ -248,15 +247,14 @@ static int find_cores(struct options* opts, int* num_cores, int* current_core)
     }
     /* print the logical number of the PU where that thread runs */
     /* extract the PU OS index from the bitmap */
-    i = hwloc_bitmap_first(last_cpu);
-    obj = hwloc_get_pu_obj_by_os_index(topology, i);
-    printf("thread is now running on PU logical index %u (OS/physical index %u)\n",
-	 obj->logical_index, i);
+    *current_core = hwloc_bitmap_first(last_cpu);
 
-
+#if 0
     /* sanity check vs sched_getcpu */
+    int sched_cpu;
     sched_cpu = sched_getcpu();
     printf("sched_cpu: %d\n", sched_cpu);
+#endif
 
     hwloc_bitmap_free(last_cpu);
     hwloc_topology_destroy(topology);
