@@ -48,6 +48,14 @@ LIBS="$LIBFABRIC_LIBS $LIBS"
 CPPFLAGS="$LIBFABRIC_CFLAGS $CPPFLAGS"
 CFLAGS="$LIBFABRIC_CFLAGS $CFLAGS"
 
+dnl require hwloc
+PKG_CHECK_MODULES([HWLOC],[hwloc],[],
+   [AC_MSG_ERROR([Could not find working hwloc installation!])])
+LIBS="$HWLOC_LIBS $LIBS"
+CPPFLAGS="$HWLOC_CFLAGS $CPPFLAGS"
+CFLAGS="$HWLOC_CFLAGS $CFLAGS"
+
+
 AC_ARG_ENABLE(coverage,
               [AS_HELP_STRING([--enable-coverage],[Enable code coverage @<:@default=no@:>@])],
               [case "${enableval}" in
