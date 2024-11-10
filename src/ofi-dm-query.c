@@ -282,6 +282,8 @@ static int check_locality(struct options* opts, int num_cores, int num_nics, str
 
     cpu = hwloc_bitmap_alloc();
 
+    printf("\nNIC/Core locality map:\n");
+
     /* loop through each nic and find its first non-io ancestor */
     for(i=0; i<num_nics; i++) {
         pci_dev = hwloc_get_pcidev_by_busid(topology, nics[i].domain_id, nics[i].bus_id, nics[i].device_id, nics[i].function_id);
@@ -295,16 +297,18 @@ static int check_locality(struct options* opts, int num_cores, int num_nics, str
 
         /* loop through every possible core id (assume they go from 0 to num_cores-1 ?) and check if it reports its locality to each nic.
          */
+        printf("\t%s ", nics[i].iface_name);
         for(j=0; j<num_cores; j++) {
             /* construct a cpu bitmap for core N */
             hwloc_bitmap_only(cpu, j);
 
             /* see if it is in the cpuset */
             if(non_io_ancestor && hwloc_bitmap_isincluded(cpu, non_io_ancestor->cpuset))
-                printf("got it.\n");
+                printf("1 ");
             else
-                printf("don't got it.\n");
+                printf("0 ");
         }
+        printf("\n");
     }
 
     hwloc_bitmap_free(cpu);
