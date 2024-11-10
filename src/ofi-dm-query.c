@@ -35,6 +35,7 @@ static int parse_args(int argc, char** argv, struct options* opts);
 static int find_nics(struct options* opts, int* num_nics, struct nic** nics);
 static void usage(void);
 static int find_cores(struct options* opts, pid_t* pid, int* num_cores, int* current_core);
+static int check_locality(struct options* opts, int num_cores, int num_nics, struct nic* nics);
 
 int main(int argc, char** argv)
 {
@@ -75,6 +76,13 @@ int main(int argc, char** argv)
     printf("\t<name> <bus ID> <device ID> <function id>\n");
     for(i=0; i<num_nics; i++) {
         printf("\t%s %u %u %u\n", nics[i].iface_name, nics[i].bus_id, nics[i].device_id, nics[i].function_id);
+    }
+
+    /* check locality of all permutations */
+    ret = check_locality(&opts, num_cores, num_nics, nics);
+    if(ret < 0) {
+        fprintf(stderr, "Error: check_locality() failure.\n");
+        return(-1);
     }
 
     if(nics)
@@ -260,4 +268,23 @@ static int find_cores(struct options* opts, pid_t* pid, int* num_cores, int* cur
     hwloc_topology_destroy(topology);
 
     return(0);
+}
+
+static int check_locality(struct options* opts, int num_cores, int num_nics, struct nic* nics)
+{
+    int i;
+    hwloc_cpuset_t cpu;
+
+    cpu = hwloc_bitmap_alloc();
+
+    /* loop through every possible core id (assume they go from 0 to num_cores-1 ?) and check if it reports its locality to each nic.
+     */
+    for(i=0; i<num_cores; i++) {
+        hwloc_bitmap_only(cpu, i);
+    }
+
+    hwloc_bitmap_free(cpu);
+
+    return(0);
+
 }
