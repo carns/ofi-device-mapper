@@ -23,6 +23,7 @@ struct options {
 
 struct nic {
     char iface_name[256];
+    unsigned int domain_id;
     unsigned int bus_id;
     unsigned int device_id;
     unsigned int function_id;
@@ -73,9 +74,9 @@ int main(int argc, char** argv)
 
     printf("\n");
     printf("Network cards:\n");
-    printf("\t<name> <bus ID> <device ID> <function id>\n");
+    printf("\t<name> <domain ID> <bus ID> <device ID> <function id>\n");
     for(i=0; i<num_nics; i++) {
-        printf("\t%s %u %u %u\n", nics[i].iface_name, nics[i].bus_id, nics[i].device_id, nics[i].function_id);
+        printf("\t%s %u %u %u %u\n", nics[i].iface_name, nics[i].domain_id, nics[i].bus_id, nics[i].device_id, nics[i].function_id);
     }
 
     /* check locality of all permutations */
@@ -201,6 +202,7 @@ static int find_nics(struct options* opts, int* num_nics, struct nic** nics) {
         cur->nic->bus_attr->bus_type == FI_BUS_PCI) {
             assert(i<*num_nics);
             strcpy((*nics)[i].iface_name, cur->domain_attr->name);
+            (*nics)[i].domain_id = cur->nic->bus_attr->attr.pci.domain_id;
             (*nics)[i].bus_id = cur->nic->bus_attr->attr.pci.bus_id;
             (*nics)[i].device_id = cur->nic->bus_attr->attr.pci.device_id;
             (*nics)[i].function_id = cur->nic->bus_attr->attr.pci.function_id;
@@ -225,17 +227,8 @@ static int find_cores(struct options* opts, pid_t* pid, int* num_cores, int* cur
     /* local process info */
     *pid = getpid();
 
-    /* Allocate and initialize topology object. */
+    /* get topology */
     hwloc_topology_init(&topology);
-
-    /* ... Optionally, put detection configuration here to ignore
-       some objects types, define a synthetic topology, etc....
-
-       The default is to detect all the objects of the machine that
-       the caller is allowed to access.  See Configure Topology
-       Detection. */
-
-    /* Perform the topology detection. */
     hwloc_topology_load(topology);
 
     /* query all PUs */
@@ -273,17 +266,41 @@ static int find_cores(struct options* opts, pid_t* pid, int* num_cores, int* cur
 static int check_locality(struct options* opts, int num_cores, int num_nics, struct nic* nics)
 {
     int i;
+    int j;
     hwloc_cpuset_t cpu;
+    hwloc_obj_t non_io_ancestor;
+    hwloc_obj_t pci_dev;
+    hwloc_topology_t topology;
+
+    hwloc_topology_init(&topology);
+    hwloc_topology_load(topology);
 
     cpu = hwloc_bitmap_alloc();
 
-    /* loop through every possible core id (assume they go from 0 to num_cores-1 ?) and check if it reports its locality to each nic.
-     */
-    for(i=0; i<num_cores; i++) {
-        hwloc_bitmap_only(cpu, i);
+    /* loop through each nic and find its first non-io ancestor */
+    for(i=0; i<num_nics; i++) {
+        pci_dev = hwloc_get_pcidev_by_busid(topology, nics[i].domain_id, nics[i].bus_id, nics[i].device_id, nics[i].function_id);
+        if(pci_dev)
+            non_io_ancestor = hwloc_get_non_io_ancestor_obj(topology, pci_dev);
+        else
+            printf("Warning: couldn't find pci device object.\n");
+
+        /* loop through every possible core id (assume they go from 0 to num_cores-1 ?) and check if it reports its locality to each nic.
+         */
+        for(j=0; j<num_cores; j++) {
+            /* construct a cpu bitmap for core N */
+            hwloc_bitmap_only(cpu, j);
+
+            /* see if it is in the cpuset */
+            if(non_io_ancestor && hwloc_bitmap_isincluded(cpu, non_io_ancestor->cpuset))
+                printf("got it.\n");
+            else
+                printf("don't got it.\n");
+        }
     }
 
     hwloc_bitmap_free(cpu);
+    hwloc_topology_destroy(topology);
 
     return(0);
 
