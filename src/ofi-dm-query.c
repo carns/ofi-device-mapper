@@ -183,7 +183,7 @@ static int find_nics(struct options* opts, int* num_nics, struct nic** nics) {
             (*num_nics)++;
     }
 
-    *nics = calloc(*num_nics, sizeof(*nics));
+    *nics = calloc(*num_nics, sizeof(**nics));
     assert(*nics);
 
     /* loop through results again and populate array */
