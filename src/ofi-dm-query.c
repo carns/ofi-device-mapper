@@ -13,6 +13,8 @@
 #include <rdma/fabric.h>
 #include <rdma/fi_errno.h>
 
+#include <hwloc.h>
+
 struct options {
     char prov_name[256];
 };
@@ -30,6 +32,7 @@ static int print_short_info(struct fi_info* info);
 static int parse_args(int argc, char** argv, struct options* opts);
 static int find_nics(struct options* opts, int* num_nics, struct nic** nics);
 static void usage(void);
+static int find_cpus(struct options* opts, int* num_cpus, int** cpus, int* current_cpu);
 
 int main(int argc, char** argv)
 {
@@ -37,6 +40,9 @@ int main(int argc, char** argv)
     struct options  opts;
     struct nic*     nics = NULL;
     int             num_nics;
+    int             num_cpus;
+    int*            cpus = NULL;
+    int             current_cpu;
     int ret;
     int i;
 
@@ -62,8 +68,17 @@ int main(int argc, char** argv)
         printf("\t%s %u %u %u\n", nics[i].iface_name, nics[i].bus_id, nics[i].device_id, nics[i].function_id);
     }
 
+    /* get array of cpu ids */
+    ret = find_cpus(&opts, &num_cpus, &cpus, &current_cpu);
+    if(ret < 0) {
+        fprintf(stderr, "Error: unable to find CPUs.\n");
+        return(-1);
+    }
+
     if(nics)
         free(nics);
+    if(cpus)
+        free(cpus);
 
     return (0);
 }
@@ -190,4 +205,10 @@ static int find_nics(struct options* opts, int* num_nics, struct nic** nics) {
 
     return(0);
 
+}
+
+static int find_cpus(struct options* opts, int* num_cpus, int** cpus, int* current_cpu)
+{
+
+    return(0);
 }
