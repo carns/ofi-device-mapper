@@ -272,8 +272,12 @@ static int check_locality(struct options* opts, int num_cores, int num_nics, str
     hwloc_obj_t non_io_ancestor;
     hwloc_obj_t pci_dev;
     hwloc_topology_t topology;
+    int ret;
 
     hwloc_topology_init(&topology);
+    ret = hwloc_topology_set_io_types_filter(
+        topology, HWLOC_TYPE_FILTER_KEEP_IMPORTANT);
+    assert(ret == 0);
     hwloc_topology_load(topology);
 
     cpu = hwloc_bitmap_alloc();
