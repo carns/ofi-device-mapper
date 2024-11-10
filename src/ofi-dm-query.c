@@ -210,6 +210,12 @@ static int find_nics(struct options* opts, int* num_nics, struct nic** nics) {
 static int find_cpus(struct options* opts, int* num_cpus, int** cpus, int* current_cpu)
 {
     hwloc_topology_t topology;
+#if 0
+    int depth;
+    unsigned i;
+    char string[128];
+    int topodepth;
+#endif
 
     /* Allocate and initialize topology object. */
     hwloc_topology_init(&topology);
@@ -223,6 +229,27 @@ static int find_cpus(struct options* opts, int* num_cpus, int** cpus, int* curre
 
     /* Perform the topology detection. */
     hwloc_topology_load(topology);
+
+#if 0
+    /* Optionally, get some additional topology information
+       in case we need the topology depth later. */
+    topodepth = hwloc_topology_get_depth(topology);
+
+    /*****************************************************************
+     * First example:
+     * Walk the topology with an array style, from level 0 (always
+     * the system level) to the lowest level (always the proc level).
+     *****************************************************************/
+    for (depth = 0; depth < topodepth; depth++) {
+        printf("*** Objects at level %d\n", depth);
+        for (i = 0; i < hwloc_get_nbobjs_by_depth(topology, depth);
+             i++) {
+            hwloc_obj_type_snprintf(string, sizeof(string),
+				    hwloc_get_obj_by_depth(topology, depth, i), 0);
+            printf("Index %u: %s\n", i, string);
+        }
+    }
+#endif
 
     /* Destroy topology object. */
     hwloc_topology_destroy(topology);
