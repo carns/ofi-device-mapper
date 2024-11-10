@@ -209,6 +209,23 @@ static int find_nics(struct options* opts, int* num_nics, struct nic** nics) {
 
 static int find_cpus(struct options* opts, int* num_cpus, int** cpus, int* current_cpu)
 {
+    hwloc_topology_t topology;
+
+    /* Allocate and initialize topology object. */
+    hwloc_topology_init(&topology);
+
+    /* ... Optionally, put detection configuration here to ignore
+       some objects types, define a synthetic topology, etc....
+
+       The default is to detect all the objects of the machine that
+       the caller is allowed to access.  See Configure Topology
+       Detection. */
+
+    /* Perform the topology detection. */
+    hwloc_topology_load(topology);
+
+    /* Destroy topology object. */
+    hwloc_topology_destroy(topology);
 
     return(0);
 }
