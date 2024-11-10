@@ -201,11 +201,12 @@ static int find_nics(struct options* opts, int* num_nics, struct nic** nics) {
         if(cur->nic && cur->nic->bus_attr &&
         cur->nic->bus_attr->bus_type == FI_BUS_PCI) {
             assert(i<*num_nics);
+            struct fi_pci_attr pci = cur->nic->bus_attr->attr.pci;
             strcpy((*nics)[i].iface_name, cur->domain_attr->name);
-            (*nics)[i].domain_id = cur->nic->bus_attr->attr.pci.domain_id;
-            (*nics)[i].bus_id = cur->nic->bus_attr->attr.pci.bus_id;
-            (*nics)[i].device_id = cur->nic->bus_attr->attr.pci.device_id;
-            (*nics)[i].function_id = cur->nic->bus_attr->attr.pci.function_id;
+            (*nics)[i].domain_id = pci.domain_id;
+            (*nics)[i].bus_id = pci.bus_id;
+            (*nics)[i].device_id = pci.device_id;
+            (*nics)[i].function_id = pci.function_id;
             i++;
         }
     }
@@ -283,7 +284,10 @@ static int check_locality(struct options* opts, int num_cores, int num_nics, str
         if(pci_dev)
             non_io_ancestor = hwloc_get_non_io_ancestor_obj(topology, pci_dev);
         else
-            printf("Warning: couldn't find pci device object.\n");
+        {
+            fprintf(stderr, "Error: could not find pci_dev in topology.\n");
+            return(-1);
+        }
 
         /* loop through every possible core id (assume they go from 0 to num_cores-1 ?) and check if it reports its locality to each nic.
          */
