@@ -48,6 +48,7 @@ int main(int argc, char** argv)
     pid_t pid;
     int ret;
     int i;
+    char hostname[256] = {0};
 
     ret = parse_args(argc, argv, &opts);
     if (ret < 0) {
@@ -69,12 +70,16 @@ int main(int argc, char** argv)
         return(-1);
     }
 
-    printf("CPU information:\n");
+    gethostname(hostname, 255);
+    printf("Host:\n");
+    printf("\t%s\n", hostname);
+
+    printf("\nCPU information:\n");
     printf("\tPID %d running on core %d of %d\n", (int)pid, current_core, num_cores);
 
     printf("\n");
     printf("Network cards:\n");
-    printf("\t<name> <domain ID> <bus ID> <device ID> <function id>\n");
+    printf("\t#<name> <domain ID> <bus ID> <device ID> <function id>\n");
     for(i=0; i<num_nics; i++) {
         printf("\t%s %u %u %u %u\n", nics[i].iface_name, nics[i].domain_id, nics[i].bus_id, nics[i].device_id, nics[i].function_id);
     }
@@ -282,7 +287,8 @@ static int check_locality(struct options* opts, int num_cores, int num_nics, str
 
     cpu = hwloc_bitmap_alloc();
 
-    printf("\nNIC/Core locality map:\n");
+    printf("\nLocality map:\n");
+    printf("\t#<name> <core mask...>\n");
 
     /* loop through each nic and find its first non-io ancestor */
     for(i=0; i<num_nics; i++) {
