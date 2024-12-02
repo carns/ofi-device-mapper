@@ -185,6 +185,7 @@ static int find_nics(struct options* opts, int* num_nics, struct nic** nics) {
                      0, hints, &info);
     if (ret != 0) {
         fprintf(stderr, "fi_getinfo: %d (%s)\n", ret, fi_strerror(-ret));
+        fi_freeinfo(hints);
         return (ret);
     }
     // print_short_info(info);
