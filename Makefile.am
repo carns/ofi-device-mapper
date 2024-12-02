@@ -31,9 +31,10 @@ AM_LIBS =
 
 AM_CXXFLAGS = $(AM_CFLAGS)
 
-lib_LTLIBRARIES =
+lib_LTLIBRARIES = src/libmochi-plumber.la
+src_libmochi_plumber_la_SOURCES =
 
-LDADD =
+LDADD = src/libmochi-plumber.la
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA =

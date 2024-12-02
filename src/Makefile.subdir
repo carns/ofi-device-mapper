@@ -4,3 +4,5 @@ bin_PROGRAMS += src/ofi-dm-query
 
 src_ofi_dm_query_SOURCES = src/ofi-dm-query.c
 src_ofi_dm_query_LDADD =
+
+src_libmochi_plumber_la_SOURCES += src/mochi-plumber.c
