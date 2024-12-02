@@ -39,6 +39,7 @@ static int
 find_cores(struct options* opts, pid_t* pid, int* num_cores, int* num_numa, int* current_core, int* current_numa);
 static int check_locality(struct options* opts,
                           int             num_cores,
+                          int             num_numa,
                           int             num_nics,
                           struct nic*     nics);
 
@@ -93,7 +94,7 @@ int main(int argc, char** argv)
     }
 
     /* check locality of all permutations */
-    ret = check_locality(&opts, num_cores, num_nics, nics);
+    ret = check_locality(&opts, num_cores, num_numa, num_nics, nics);
     if (ret < 0) {
         fprintf(stderr, "Error: check_locality() failure.\n");
         return (-1);
@@ -292,12 +293,14 @@ find_cores(struct options* opts, pid_t* pid, int* num_cores, int* num_numa, int*
 
 static int check_locality(struct options* opts,
                           int             num_cores,
+			  int             num_numa,
                           int             num_nics,
                           struct nic*     nics)
 {
     int              i;
     int              j;
     hwloc_cpuset_t   cpu;
+    hwloc_nodeset_t  numa;
     hwloc_obj_t      non_io_ancestor;
     hwloc_obj_t      pci_dev;
     hwloc_topology_t topology;
@@ -310,8 +313,9 @@ static int check_locality(struct options* opts,
     hwloc_topology_load(topology);
 
     cpu = hwloc_bitmap_alloc();
+    numa = hwloc_bitmap_alloc();
 
-    printf("\nLocality map:\n");
+    printf("\nCore locality map:\n");
     printf("\t#<name> <core mask...>\n");
 
     /* loop through each nic and find its first non-io ancestor */
@@ -327,7 +331,7 @@ static int check_locality(struct options* opts,
         }
 
         /* loop through every possible core id (assume they go from 0 to
-         * num_cores-1 ?) and check if it reports its locality to each nic.
+         * num_cores-1) and check if it reports its locality to each nic.
          */
         printf("\t%s ", nics[i].iface_name);
         for (j = 0; j < num_cores; j++) {
@@ -344,7 +348,40 @@ static int check_locality(struct options* opts,
         printf("\n");
     }
 
+    printf("\nNUMA locality map:\n");
+    printf("\t#<name> <NUMA mask...>\n");
+
+    /* loop through each nic and find its first non-io ancestor */
+    for (i = 0; i < num_nics; i++) {
+        pci_dev = hwloc_get_pcidev_by_busid(topology, nics[i].domain_id,
+                                            nics[i].bus_id, nics[i].device_id,
+                                            nics[i].function_id);
+        if (pci_dev)
+            non_io_ancestor = hwloc_get_non_io_ancestor_obj(topology, pci_dev);
+        else {
+            fprintf(stderr, "Error: could not find pci_dev in topology.\n");
+            return (-1);
+        }
+
+        /* loop through every possible numa id and check if it reports its locality to each nic.
+         */
+        printf("\t%s ", nics[i].iface_name);
+        for (j = 0; j < num_numa; j++) {
+            /* construct a cpu bitmap for NUMA N */
+            hwloc_bitmap_only(numa, j);
+
+            /* see if it is in the cpuset */
+            if (non_io_ancestor
+                && hwloc_bitmap_isincluded(numa, non_io_ancestor->nodeset))
+                printf("1");
+            else
+                printf("0");
+        }
+        printf("\n");
+    }
+
     hwloc_bitmap_free(cpu);
+    hwloc_bitmap_free(numa);
     hwloc_topology_destroy(topology);
 
     return (0);
