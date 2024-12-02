@@ -323,9 +323,9 @@ static int check_locality(struct options* opts,
             /* see if it is in the cpuset */
             if (non_io_ancestor
                 && hwloc_bitmap_isincluded(cpu, non_io_ancestor->cpuset))
-                printf("1 ");
+                printf("1");
             else
-                printf("0 ");
+                printf("0");
         }
         printf("\n");
     }
