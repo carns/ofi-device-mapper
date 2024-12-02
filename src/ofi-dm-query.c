@@ -22,7 +22,7 @@ struct options {
 };
 
 struct nic {
-    char iface_name[256];
+    char         iface_name[256];
     unsigned int domain_id;
     unsigned int bus_id;
     unsigned int device_id;
@@ -32,23 +32,27 @@ struct nic {
 #if 0
 static int print_short_info(struct fi_info* info);
 #endif
-static int parse_args(int argc, char** argv, struct options* opts);
-static int find_nics(struct options* opts, int* num_nics, struct nic** nics);
+static int  parse_args(int argc, char** argv, struct options* opts);
+static int  find_nics(struct options* opts, int* num_nics, struct nic** nics);
 static void usage(void);
-static int find_cores(struct options* opts, pid_t* pid, int* num_cores, int* current_core);
-static int check_locality(struct options* opts, int num_cores, int num_nics, struct nic* nics);
+static int
+find_cores(struct options* opts, pid_t* pid, int* num_cores, int* current_core);
+static int check_locality(struct options* opts,
+                          int             num_cores,
+                          int             num_nics,
+                          struct nic*     nics);
 
 int main(int argc, char** argv)
 {
-    struct options  opts;
-    struct nic*     nics = NULL;
-    int             num_nics;
-    int             num_cores;
-    int             current_core;
-    pid_t pid;
-    int ret;
-    int i;
-    char hostname[256] = {0};
+    struct options opts;
+    struct nic*    nics = NULL;
+    int            num_nics;
+    int            num_cores;
+    int            current_core;
+    pid_t          pid;
+    int            ret;
+    int            i;
+    char           hostname[256] = {0};
 
     ret = parse_args(argc, argv, &opts);
     if (ret < 0) {
@@ -58,16 +62,16 @@ int main(int argc, char** argv)
 
     /* get an array of network interfaces with device ids */
     ret = find_nics(&opts, &num_nics, &nics);
-    if(ret < 0) {
+    if (ret < 0) {
         fprintf(stderr, "Error: unable to find network cards.\n");
-        return(-1);
+        return (-1);
     }
 
     /* get array of cpu ids */
     ret = find_cores(&opts, &pid, &num_cores, &current_core);
-    if(ret < 0) {
+    if (ret < 0) {
         fprintf(stderr, "Error: unable to find CPUs.\n");
-        return(-1);
+        return (-1);
     }
 
     gethostname(hostname, 255);
@@ -75,24 +79,25 @@ int main(int argc, char** argv)
     printf("\t%s\n", hostname);
 
     printf("\nCPU information:\n");
-    printf("\tPID %d running on core %d of %d\n", (int)pid, current_core, num_cores);
+    printf("\tPID %d running on core %d of %d\n", (int)pid, current_core,
+           num_cores);
 
     printf("\n");
     printf("Network cards:\n");
     printf("\t#<name> <domain ID> <bus ID> <device ID> <function id>\n");
-    for(i=0; i<num_nics; i++) {
-        printf("\t%s %u %u %u %u\n", nics[i].iface_name, nics[i].domain_id, nics[i].bus_id, nics[i].device_id, nics[i].function_id);
+    for (i = 0; i < num_nics; i++) {
+        printf("\t%s %u %u %u %u\n", nics[i].iface_name, nics[i].domain_id,
+               nics[i].bus_id, nics[i].device_id, nics[i].function_id);
     }
 
     /* check locality of all permutations */
     ret = check_locality(&opts, num_cores, num_nics, nics);
-    if(ret < 0) {
+    if (ret < 0) {
         fprintf(stderr, "Error: check_locality() failure.\n");
-        return(-1);
+        return (-1);
     }
 
-    if(nics)
-        free(nics);
+    if (nics) free(nics);
 
     return (0);
 }
@@ -123,7 +128,7 @@ static int parse_args(int argc, char** argv, struct options* opts)
 
     if (strlen(opts->prov_name) == 0) return (-1);
 
-    return(0);
+    return (0);
 }
 
 #if 0
@@ -149,12 +154,13 @@ static int print_short_info(struct fi_info* info)
 }
 #endif
 
-static int find_nics(struct options* opts, int* num_nics, struct nic** nics) {
+static int find_nics(struct options* opts, int* num_nics, struct nic** nics)
+{
     struct fi_info* info;
     struct fi_info* hints;
     struct fi_info* cur;
     int             ret;
-    int i;
+    int             i;
 
     /* ofi info */
     hints = fi_allocinfo();
@@ -164,17 +170,17 @@ static int find_nics(struct options* opts, int* num_nics, struct nic** nics) {
      * is just a query, so we want wildcard options except that we must disable
      * deprecated memory registration modes.
      */
-    hints->mode = ~0;
-    hints->domain_attr->mode = ~0;
+    hints->mode                 = ~0;
+    hints->domain_attr->mode    = ~0;
     hints->domain_attr->mr_mode = ~3;
     /* Indicate that we only want results matching a particular provider
      * (e.g., cxi or verbs)
      */
-    hints->fabric_attr->prov_name     = strdup(opts->prov_name);
+    hints->fabric_attr->prov_name = strdup(opts->prov_name);
     /* Depending on the provider we may also need to set the protocol we
      * want; some providers advertise more than one.
      */
-    if(strcmp(opts->prov_name, "cxi") == 0) {
+    if (strcmp(opts->prov_name, "cxi") == 0) {
         hints->ep_attr->protocol = FI_PROTO_CXI;
     }
 
@@ -193,8 +199,8 @@ static int find_nics(struct options* opts, int* num_nics, struct nic** nics) {
     /* loop through results and see how many report PCI bus information */
     *num_nics = 0;
     for (cur = info; cur; cur = cur->next) {
-        if(cur->nic && cur->nic->bus_attr &&
-        cur->nic->bus_attr->bus_type == FI_BUS_PCI)
+        if (cur->nic && cur->nic->bus_attr
+            && cur->nic->bus_attr->bus_type == FI_BUS_PCI)
             (*num_nics)++;
     }
 
@@ -202,16 +208,16 @@ static int find_nics(struct options* opts, int* num_nics, struct nic** nics) {
     assert(*nics);
 
     /* loop through results again and populate array */
-    i=0;
+    i = 0;
     for (cur = info; cur; cur = cur->next) {
-        if(cur->nic && cur->nic->bus_attr &&
-        cur->nic->bus_attr->bus_type == FI_BUS_PCI) {
-            assert(i<*num_nics);
+        if (cur->nic && cur->nic->bus_attr
+            && cur->nic->bus_attr->bus_type == FI_BUS_PCI) {
+            assert(i < *num_nics);
             struct fi_pci_attr pci = cur->nic->bus_attr->attr.pci;
             strcpy((*nics)[i].iface_name, cur->domain_attr->name);
-            (*nics)[i].domain_id = pci.domain_id;
-            (*nics)[i].bus_id = pci.bus_id;
-            (*nics)[i].device_id = pci.device_id;
+            (*nics)[i].domain_id   = pci.domain_id;
+            (*nics)[i].bus_id      = pci.bus_id;
+            (*nics)[i].device_id   = pci.device_id;
             (*nics)[i].function_id = pci.function_id;
             i++;
         }
@@ -220,16 +226,16 @@ static int find_nics(struct options* opts, int* num_nics, struct nic** nics) {
     fi_freeinfo(info);
     fi_freeinfo(hints);
 
-    return(0);
-
+    return (0);
 }
 
-static int find_cores(struct options* opts, pid_t* pid, int* num_cores, int* current_core)
+static int
+find_cores(struct options* opts, pid_t* pid, int* num_cores, int* current_core)
 {
-    hwloc_topology_t topology;
-    hwloc_cpuset_t last_cpu;
+    hwloc_topology_t     topology;
+    hwloc_cpuset_t       last_cpu;
     hwloc_const_bitmap_t cset_all;
-    int ret;
+    int                  ret;
 
     /* local process info */
     *pid = getpid();
@@ -239,19 +245,19 @@ static int find_cores(struct options* opts, pid_t* pid, int* num_cores, int* cur
     hwloc_topology_load(topology);
 
     /* query all PUs */
-    cset_all = hwloc_topology_get_complete_cpuset(topology);
+    cset_all   = hwloc_topology_get_complete_cpuset(topology);
     *num_cores = hwloc_bitmap_weight(cset_all);
 
     /* query where this process is running */
     last_cpu = hwloc_bitmap_alloc();
-    if(!last_cpu) {
+    if (!last_cpu) {
         fprintf(stderr, "hwloc_bitmap_alloc() failure.\n");
-        return(-1);
+        return (-1);
     }
     ret = hwloc_get_last_cpu_location(topology, last_cpu, HWLOC_CPUBIND_THREAD);
-    if(ret < 0) {
+    if (ret < 0) {
         fprintf(stderr, "hwloc_get_last_cpu_location() failure.\n");
-        return(-1);
+        return (-1);
     }
     /* print the logical number of the PU where that thread runs */
     /* extract the PU OS index from the bitmap */
@@ -267,22 +273,25 @@ static int find_cores(struct options* opts, pid_t* pid, int* num_cores, int* cur
     hwloc_bitmap_free(last_cpu);
     hwloc_topology_destroy(topology);
 
-    return(0);
+    return (0);
 }
 
-static int check_locality(struct options* opts, int num_cores, int num_nics, struct nic* nics)
+static int check_locality(struct options* opts,
+                          int             num_cores,
+                          int             num_nics,
+                          struct nic*     nics)
 {
-    int i;
-    int j;
-    hwloc_cpuset_t cpu;
-    hwloc_obj_t non_io_ancestor;
-    hwloc_obj_t pci_dev;
+    int              i;
+    int              j;
+    hwloc_cpuset_t   cpu;
+    hwloc_obj_t      non_io_ancestor;
+    hwloc_obj_t      pci_dev;
     hwloc_topology_t topology;
-    int ret;
+    int              ret;
 
     hwloc_topology_init(&topology);
-    ret = hwloc_topology_set_io_types_filter(
-        topology, HWLOC_TYPE_FILTER_KEEP_IMPORTANT);
+    ret = hwloc_topology_set_io_types_filter(topology,
+                                             HWLOC_TYPE_FILTER_KEEP_IMPORTANT);
     assert(ret == 0);
     hwloc_topology_load(topology);
 
@@ -292,25 +301,28 @@ static int check_locality(struct options* opts, int num_cores, int num_nics, str
     printf("\t#<name> <core mask...>\n");
 
     /* loop through each nic and find its first non-io ancestor */
-    for(i=0; i<num_nics; i++) {
-        pci_dev = hwloc_get_pcidev_by_busid(topology, nics[i].domain_id, nics[i].bus_id, nics[i].device_id, nics[i].function_id);
-        if(pci_dev)
+    for (i = 0; i < num_nics; i++) {
+        pci_dev = hwloc_get_pcidev_by_busid(topology, nics[i].domain_id,
+                                            nics[i].bus_id, nics[i].device_id,
+                                            nics[i].function_id);
+        if (pci_dev)
             non_io_ancestor = hwloc_get_non_io_ancestor_obj(topology, pci_dev);
-        else
-        {
+        else {
             fprintf(stderr, "Error: could not find pci_dev in topology.\n");
-            return(-1);
+            return (-1);
         }
 
-        /* loop through every possible core id (assume they go from 0 to num_cores-1 ?) and check if it reports its locality to each nic.
+        /* loop through every possible core id (assume they go from 0 to
+         * num_cores-1 ?) and check if it reports its locality to each nic.
          */
         printf("\t%s ", nics[i].iface_name);
-        for(j=0; j<num_cores; j++) {
+        for (j = 0; j < num_cores; j++) {
             /* construct a cpu bitmap for core N */
             hwloc_bitmap_only(cpu, j);
 
             /* see if it is in the cpuset */
-            if(non_io_ancestor && hwloc_bitmap_isincluded(cpu, non_io_ancestor->cpuset))
+            if (non_io_ancestor
+                && hwloc_bitmap_isincluded(cpu, non_io_ancestor->cpuset))
                 printf("1 ");
             else
                 printf("0 ");
@@ -321,6 +333,5 @@ static int check_locality(struct options* opts, int num_cores, int num_nics, str
     hwloc_bitmap_free(cpu);
     hwloc_topology_destroy(topology);
 
-    return(0);
-
+    return (0);
 }
