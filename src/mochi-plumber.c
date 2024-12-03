@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <sched.h>
 #include <sys/stat.h>
 #include <sys/file.h>
 #include <sys/types.h>
@@ -27,6 +28,7 @@ struct bucket {
 static int select_nic(hwloc_topology_t* topology, const char* bucket_policy, const char* nic_policy, int nbuckets, struct bucket* buckets, const char** out_nic);
 static int select_nic_roundrobin(int bucket_idx, struct bucket* bucket, const char** out_nic);
 static int select_nic_random(int bucket_idx, struct bucket* bucket, const char** out_nic);
+static int select_nic_bycore(hwloc_topology_t* topology, int bucket_idx, struct bucket* bucket, const char** out_nic);
 
 int mochi_plumber_resolve_nic(const char* in_address, const char* bucket_policy, const char* nic_policy, char** out_address) {
 
@@ -234,6 +236,9 @@ static int select_nic(hwloc_topology_t* topology, const char* bucket_policy, con
     else if(strcmp(nic_policy, "random") == 0) {
         ret = select_nic_random(bucket_idx, &buckets[bucket_idx], out_nic);
     }
+    else if(strcmp(nic_policy, "bycore") == 0) {
+        ret = select_nic_bycore(topology, bucket_idx, &buckets[bucket_idx], out_nic);
+    }
     else {
         fprintf(stderr, "Error: unknown nic_policy \"%s\"\n", nic_policy);
         ret = -1;
@@ -301,6 +306,27 @@ static int select_nic_random(int bucket_idx, struct bucket* bucket, const char**
      */
     srand(getpid());
     nic_idx = rand() % bucket->num_nics;
+
+    *out_nic = bucket->nics[nic_idx];
+    return(0);
+}
+
+static int select_nic_bycore(hwloc_topology_t* topology, int bucket_idx, struct bucket* bucket, const char** out_nic) {
+    int nic_idx = -1;
+    int ret;
+    hwloc_cpuset_t       last_cpu;
+
+    last_cpu = hwloc_bitmap_alloc();
+    assert(last_cpu);
+
+    ret = hwloc_get_last_cpu_location(*topology, last_cpu, HWLOC_CPUBIND_THREAD);
+    if(ret < 0) {
+        hwloc_bitmap_free(last_cpu);
+        fprintf(stderr, "hwloc_get_last_cpu_location() failure.\n");
+        return(-1);
+    }
+    nic_idx = hwloc_bitmap_first(last_cpu) % bucket->num_nics;
+    hwloc_bitmap_free(last_cpu);
 
     *out_nic = bucket->nics[nic_idx];
     return(0);
