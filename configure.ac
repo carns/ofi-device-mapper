@@ -5,7 +5,7 @@ AC_PREREQ([2.63])
 
 # IMPORTANT: when editing the version  number, edit both the
 # MARGO_VERSION_ variables and the argument provided to AC_INIT
-AC_INIT([ofi-device-mapper], [0.0.1], [],[],[])
+AC_INIT([mochi-plumber], [0.0.1], [],[],[])
 
 AC_CONFIG_MACRO_DIR([m4])
 LT_INIT
@@ -20,7 +20,7 @@ AM_INIT_AUTOMAKE([foreign subdir-objects -Wall])
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
 AC_CONFIG_SRCDIR([README.md])
-AC_CONFIG_HEADERS([ofi-device-mapper-private.h])
+AC_CONFIG_HEADERS([mochi-plumber-private.h])
 
 # Checks for programs.
 AC_PROG_CC

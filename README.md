@@ -1,4 +1,2 @@
-# OFI Device Mapper
-
-This repo contains experimental code for querying available CPU and NIC
-resources and generating optimal mappings.
+This repo contains code for querying hardware topology and generating
+mappings to local resources.

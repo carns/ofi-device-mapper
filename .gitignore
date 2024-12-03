@@ -3,9 +3,9 @@
 *.i
 *.s
 *.swp
-ofi-device-mapper-private.h
-ofi-device-mapper-private.h.in
-ofi-device-mapper-private.h.in~
+mochi-plumber-private.h
+mochi-plumber-private.h.in
+mochi-plumber-private.h.in~
 autom4te.cache/
 config.log
 config.status
