@@ -31,6 +31,17 @@ struct nic {
     unsigned int function_id;
 };
 
+struct test_combo {
+    const char* bucket_policy;
+    const char* nic_policy;
+};
+
+struct test_combo test_combos[] = {
+    {.bucket_policy = "all",
+     .nic_policy = "fair" },
+    {0}
+};
+
 #if 0
 static int print_short_info(struct fi_info* info);
 #endif
@@ -60,8 +71,6 @@ int main(int argc, char** argv)
     char           hostname[256] = {0};
     char           in_addr[256] = {0};
     char           *out_addr = NULL;
-    const char     *bucket_policy = NULL;
-    const char     *nic_policy = NULL;
 
     ret = parse_args(argc, argv, &opts);
     if (ret < 0) {
@@ -109,19 +118,28 @@ int main(int argc, char** argv)
     if (nics) free(nics);
 
     /* exercise programmatic fn for resolving addresses to specific NICs */
-    printf("\n");
-    snprintf(in_addr, 256, "%s://", opts.prov_name);
+    printf("\nmochi_plumber_resolve_nic() test cases:\n");
+    printf("\t#<bucket policy>\t<NIC policy>\t<ret>\t<in addr>\t<out addr>\n");
 
-    bucket_policy = "numa";
-    nic_policy = "roundrobin";
-    ret = mochi_plumber_resolve_nic(in_addr, bucket_policy, nic_policy, &out_addr);
-    if(ret < 0) {
-        fprintf(stderr, "Error: mochi_plumber_resolve_nic() failure\n");
-        return(-1);
+    snprintf(in_addr, 256, "%s://", opts.prov_name);
+    i=0;
+    while(test_combos[i].bucket_policy) {
+        ret = mochi_plumber_resolve_nic(in_addr, test_combos[i].bucket_policy, test_combos[i].nic_policy, &out_addr);
+        if(ret < 0) {
+            fprintf(stderr, "Error: mochi_plumber_resolve_nic() failure\n");
+            return(-1);
+        }
+        printf("\t%s\t%s\t%d\t%s\t%s\n",
+            test_combos[i].bucket_policy,
+            test_combos[i].nic_policy,
+            ret,
+            in_addr,
+            out_addr);
+        if(out_addr) free(out_addr);
+        out_addr = NULL;
+        i++;
     }
 
-    printf("Resolved \"%s\" to \"%s\" using bucket policy \"%s\" and NIC policy \"%s\".\n", in_addr, out_addr, bucket_policy, nic_policy);
-    if(out_addr) free(out_addr);
 
     return (0);
 }
