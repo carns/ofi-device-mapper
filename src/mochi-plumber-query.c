@@ -40,6 +40,9 @@ struct test_combo test_combos[] = {
     {.bucket_policy = "all", .nic_policy = "roundrobin" },
     {.bucket_policy = "all", .nic_policy = "random" },
     {.bucket_policy = "all", .nic_policy = "bycore" },
+    {.bucket_policy = "numa", .nic_policy = "roundrobin" },
+    {.bucket_policy = "numa", .nic_policy = "random" },
+    {.bucket_policy = "numa", .nic_policy = "bycore" },
     {0}
 };
 
@@ -120,7 +123,7 @@ int main(int argc, char** argv)
 
     /* exercise programmatic fn for resolving addresses to specific NICs */
     printf("\nmochi_plumber_resolve_nic() test cases:\n");
-    printf("\t#<bucket policy>\t<NIC policy>\t<ret>\t<in addr>\t<out addr>\n");
+    printf("\t#<bucket policy>\t<NIC policy>\t<in addr>\t<out addr>\n");
 
     snprintf(in_addr, 256, "%s://", opts.prov_name);
     i=0;
@@ -130,10 +133,9 @@ int main(int argc, char** argv)
             fprintf(stderr, "Error: mochi_plumber_resolve_nic() failure\n");
             return(-1);
         }
-        printf("\t%s\t%s\t%d\t%s\t%s\n",
+        printf("\t%6s\t%12s\t%s\t%s\n",
             test_combos[i].bucket_policy,
             test_combos[i].nic_policy,
-            ret,
             in_addr,
             out_addr);
         if(out_addr) free(out_addr);
