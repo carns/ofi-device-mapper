@@ -17,6 +17,8 @@
 
 #include <hwloc.h>
 
+#include "mochi-plumber.h"
+
 struct options {
     char prov_name[256];
 };
@@ -56,6 +58,10 @@ int main(int argc, char** argv)
     int            ret;
     int            i;
     char           hostname[256] = {0};
+    char           in_addr[256] = {0};
+    char           *out_addr = NULL;
+    const char     *bucket_policy = NULL;
+    const char     *nic_policy = NULL;
 
     ret = parse_args(argc, argv, &opts);
     if (ret < 0) {
@@ -101,6 +107,21 @@ int main(int argc, char** argv)
     }
 
     if (nics) free(nics);
+
+    /* exercise programmatic fn for resolving addresses to specific NICs */
+    printf("\n");
+    snprintf(in_addr, 256, "%s://", opts.prov_name);
+
+    bucket_policy = "all";
+    nic_policy = "roundrobin";
+    ret = mochi_plumber_resolve_nic(in_addr, bucket_policy, nic_policy, &out_addr);
+    if(ret < 0) {
+        fprintf(stderr, "Error: mochi_plumber_resolve_nic() failure\n");
+        return(-1);
+    }
+
+    printf("Resolved \"%s\" to \"%s\" using bucket policy \"%s\" and NIC policy \"%s\".\n", in_addr, out_addr, bucket_policy, nic_policy);
+    if(out_addr) free(out_addr);
 
     return (0);
 }

@@ -25,7 +25,7 @@ extern "C" {
 int mochi_plumber_resolve_nic(const char* in_address, const char* bucket_policy, const char* nic_policy, char** out_address);
 
 #ifdef __cplusplus
-}   
+}
 #endif
 
 #endif /* __MOCHI_PLUMBER */

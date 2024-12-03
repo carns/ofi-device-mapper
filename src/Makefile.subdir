@@ -3,6 +3,6 @@ noinst_HEADERS +=
 bin_PROGRAMS += src/mochi-plumber-query
 
 src_mochi_plumber_query_SOURCES = src/mochi-plumber-query.c
-src_mochi_plumber_query_LDADD =
+src_mochi_plumber_query_LDADD = src/libmochi-plumber.la
 
 src_libmochi_plumber_la_SOURCES += src/mochi-plumber.c
