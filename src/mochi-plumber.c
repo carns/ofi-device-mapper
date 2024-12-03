@@ -7,6 +7,10 @@
  */
 
 #include <string.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/file.h>
+#include <unistd.h>
 #include <rdma/fabric.h>
 #include <rdma/fi_errno.h>
 #include <hwloc.h>
@@ -19,6 +23,7 @@ struct bucket {
 };
 
 static int select_nic(hwloc_topology_t* topology, const char* bucket_policy, const char* nic_policy, int nbuckets, struct bucket* buckets, const char** out_nic);
+static int select_nic_roundrobin(int bucket_idx, struct bucket* bucket, const char** out_nic);
 
 int mochi_plumber_resolve_nic(const char* in_address, const char* bucket_policy, const char* nic_policy, char** out_address) {
 
@@ -169,6 +174,11 @@ int mochi_plumber_resolve_nic(const char* in_address, const char* bucket_policy,
     /* TODO: bucket cleanup */
     free(buckets);
     hwloc_topology_destroy(topology);
+
+    /* generate new address! */
+    *out_address = malloc(strlen(in_address) + strlen(selected_nic) + 1);
+    sprintf(*out_address, "%s%s", in_address, selected_nic);
+
     return(0);
 }
 
@@ -215,5 +225,64 @@ static int select_nic(hwloc_topology_t* topology, const char* bucket_policy, con
         return(0);
     }
 
+    if(strcmp(nic_policy, "roundrobin") == 0) {
+        ret = select_nic_roundrobin(bucket_idx, &buckets[bucket_idx], out_nic);
+    }
+    else {
+        fprintf(stderr, "Error: unknown nic_policy \"%s\"\n", nic_policy);
+        ret = -1;
+    }
+
+    return(ret);
+}
+
+static int select_nic_roundrobin(int bucket_idx, struct bucket* bucket, const char** out_nic) {
+    int ret;
+    char tokenpath[256] = {0};
+    int fd;
+    int nic_idx = -1;
+
+    snprintf(tokenpath, 256, "/tmp/%s-mochi-plumber", getlogin());
+    ret = mkdir(tokenpath, 0700);
+    if(ret !=0 && errno != EEXIST) {
+        perror("mkdir");
+        fprintf(stderr, "Error: failed to create %s\n", tokenpath);
+        return(-1);
+    }
+
+    snprintf(tokenpath, 256, "/tmp/%s-mochi-plumber/%d", getlogin(), bucket_idx);
+    fd = open(tokenpath, O_RDWR|O_CREAT|O_SYNC, 0600);
+    if(fd < 0) {
+        perror("open");
+        fprintf(stderr, "Error: failed to open %s\n", tokenpath);
+    }
+
+    /* exlusive lock file */
+    flock(fd, LOCK_EX);
+
+    /* read most recently used nic index */
+    /* note: if value hasn't been set yet (pread returns 0), nic_idx was
+     * initialized to -1
+     */
+    ret = pread(fd, &nic_idx, sizeof(nic_idx), 0);
+    if(ret < 0) {
+        perror("pread");
+        fprintf(stderr, "Error: failed to read %s\n", tokenpath);
+        flock(fd, LOCK_UN);
+        return(-1);
+    }
+    /* select next nic */
+    nic_idx = (nic_idx+1)%(bucket->num_nics);
+    /* write selection back to file */
+    ret = pwrite(fd, &nic_idx, sizeof(nic_idx), 0);
+    if(ret < 0) {
+        perror("pwrite");
+        fprintf(stderr, "Error: failed to write %s\n", tokenpath);
+        flock(fd, LOCK_UN);
+        return(-1);
+    }
+    flock(fd, LOCK_UN);
+
+    *out_nic = bucket->nics[nic_idx];
     return(0);
 }
