@@ -67,6 +67,7 @@ static int find_cores(struct options* opts,
 static int check_locality(struct options* opts,
                           int             num_cores,
                           int             num_numa,
+                          int             num_packages,
                           int             num_nics,
                           struct nic*     nics);
 
@@ -125,7 +126,7 @@ int main(int argc, char** argv)
     }
 
     /* check locality of all permutations */
-    ret = check_locality(&opts, num_cores, num_numa, num_nics, nics);
+    ret = check_locality(&opts, num_cores, num_numa, num_packages, num_nics, nics);
     if (ret < 0) {
         fprintf(stderr, "Error: check_locality() failure.\n");
         return (-1);
@@ -354,6 +355,7 @@ find_cores(struct options* opts, pid_t* pid, int* num_cores, int* num_numa, int*
 static int check_locality(struct options* opts,
                           int             num_cores,
 			  int             num_numa,
+                          int             num_packages,
                           int             num_nics,
                           struct nic*     nics)
 {
@@ -362,6 +364,7 @@ static int check_locality(struct options* opts,
     hwloc_cpuset_t   cpu;
     hwloc_nodeset_t  numa;
     hwloc_obj_t      non_io_ancestor;
+    hwloc_obj_t      package_ancestor;
     hwloc_obj_t      pci_dev;
     hwloc_topology_t topology;
     int              ret;
@@ -439,6 +442,35 @@ static int check_locality(struct options* opts,
         }
         printf("\n");
     }
+
+    printf("\nPackage locality map:\n");
+    printf("\t#<name> <Package mask...>\n");
+
+    /* loop through each nic and find its first package ancestor */
+    for (i = 0; i < num_nics; i++) {
+        pci_dev = hwloc_get_pcidev_by_busid(topology, nics[i].domain_id,
+                                            nics[i].bus_id, nics[i].device_id,
+                                            nics[i].function_id);
+        if (pci_dev)
+            package_ancestor = hwloc_get_ancestor_obj_by_type(topology, HWLOC_OBJ_PACKAGE, pci_dev);
+        else {
+            fprintf(stderr, "Error: could not find pci_dev in topology.\n");
+            return (-1);
+        }
+
+        /* loop through every possible package id note if it is the ancestor
+         * to this device.
+         */
+        printf("\t%s ", nics[i].iface_name);
+        for (j = 0; j < num_packages; j++) {
+            if (j == package_ancestor->os_index)
+                printf("1");
+            else
+                printf("0");
+        }
+        printf("\n");
+    }
+
 
     hwloc_bitmap_free(cpu);
     hwloc_bitmap_free(numa);
