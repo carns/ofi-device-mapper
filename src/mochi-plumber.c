@@ -18,6 +18,8 @@ struct bucket {
     char** nics;
 };
 
+static int select_nic(hwloc_topology_t* topology, const char* bucket_policy, const char* nic_policy, int nbuckets, struct bucket* buckets, const char** out_nic);
+
 int mochi_plumber_resolve_nic(const char* in_address, const char* bucket_policy, const char* nic_policy, char** out_address) {
 
     int nbuckets = 0;
@@ -32,6 +34,7 @@ int mochi_plumber_resolve_nic(const char* in_address, const char* bucket_policy,
     hwloc_obj_t      non_io_ancestor;
     int bucket_idx = 0;
     int i;
+    const char* selected_nic;
 
     /* for now we only manipulate CXI addresses */
     if(strncmp(in_address, "cxi", strlen("cxi")) != 0 &&
@@ -150,11 +153,41 @@ int mochi_plumber_resolve_nic(const char* in_address, const char* bucket_policy,
             /* TODO: bucket cleanup */
             free(buckets);
             hwloc_topology_destroy(topology);
+            return(-1);
         }
+    }
+
+    ret = select_nic(&topology, bucket_policy, nic_policy, nbuckets, buckets, &selected_nic);
+    if(ret < 0) {
+        fprintf(stderr, "Error: failed to select NIC.\n");
+        /* TODO: bucket cleanup */
+        free(buckets);
+        hwloc_topology_destroy(topology);
+        return(-1);
     }
 
     /* TODO: bucket cleanup */
     free(buckets);
     hwloc_topology_destroy(topology);
+    return(0);
+}
+
+static int select_nic(hwloc_topology_t* topology, const char* bucket_policy, const char* nic_policy, int nbuckets, struct bucket* buckets, const char** out_nic) {
+    int bucket_idx = 0;
+
+    if(nbuckets == 1)
+        bucket_idx = 0;
+    else {
+        if(strcmp(bucket_policy, "numa") == 0) {
+            /* select a bucket based on the numa domain that this process is
+             * executing in
+             */
+            /* TODO: pick back up here */
+
+        } else {
+            fprintf(stderr, "Error: inconsistent bucket policy %s.\n", bucket_policy);
+            return(-1);
+        }
+    }
     return(0);
 }
