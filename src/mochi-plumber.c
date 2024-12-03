@@ -153,6 +153,7 @@ int mochi_plumber_resolve_nic(const char* in_address, const char* bucket_policy,
         }
     }
 
+    /* TODO: bucket cleanup */
     free(buckets);
     hwloc_topology_destroy(topology);
     return(0);
