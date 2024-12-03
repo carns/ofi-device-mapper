@@ -37,8 +37,8 @@ struct test_combo {
 };
 
 struct test_combo test_combos[] = {
-    {.bucket_policy = "all",
-     .nic_policy = "roundrobin" },
+    {.bucket_policy = "all", .nic_policy = "roundrobin" },
+    {.bucket_policy = "all", .nic_policy = "random" },
     {0}
 };
 

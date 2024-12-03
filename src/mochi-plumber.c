@@ -7,10 +7,12 @@
  */
 
 #include <string.h>
+#include <stdlib.h>
+#include <unistd.h>
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/file.h>
-#include <unistd.h>
+#include <sys/types.h>
 #include <rdma/fabric.h>
 #include <rdma/fi_errno.h>
 #include <hwloc.h>
@@ -24,6 +26,7 @@ struct bucket {
 
 static int select_nic(hwloc_topology_t* topology, const char* bucket_policy, const char* nic_policy, int nbuckets, struct bucket* buckets, const char** out_nic);
 static int select_nic_roundrobin(int bucket_idx, struct bucket* bucket, const char** out_nic);
+static int select_nic_random(int bucket_idx, struct bucket* bucket, const char** out_nic);
 
 int mochi_plumber_resolve_nic(const char* in_address, const char* bucket_policy, const char* nic_policy, char** out_address) {
 
@@ -228,6 +231,9 @@ static int select_nic(hwloc_topology_t* topology, const char* bucket_policy, con
     if(strcmp(nic_policy, "roundrobin") == 0) {
         ret = select_nic_roundrobin(bucket_idx, &buckets[bucket_idx], out_nic);
     }
+    else if(strcmp(nic_policy, "random") == 0) {
+        ret = select_nic_random(bucket_idx, &buckets[bucket_idx], out_nic);
+    }
     else {
         fprintf(stderr, "Error: unknown nic_policy \"%s\"\n", nic_policy);
         ret = -1;
@@ -282,6 +288,19 @@ static int select_nic_roundrobin(int bucket_idx, struct bucket* bucket, const ch
         return(-1);
     }
     flock(fd, LOCK_UN);
+
+    *out_nic = bucket->nics[nic_idx];
+    return(0);
+}
+
+static int select_nic_random(int bucket_idx, struct bucket* bucket, const char** out_nic) {
+    int nic_idx = -1;
+
+    /* we only need to worry about unique seeding within a single node, so
+     * its sufficient to just use the pid
+     */
+    srand(getpid());
+    nic_idx = rand() % bucket->num_nics;
 
     *out_nic = bucket->nics[nic_idx];
     return(0);
