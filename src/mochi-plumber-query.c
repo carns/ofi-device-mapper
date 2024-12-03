@@ -54,8 +54,16 @@ static int print_short_info(struct fi_info* info);
 static int  parse_args(int argc, char** argv, struct options* opts);
 static int  find_nics(struct options* opts, int* num_nics, struct nic** nics);
 static void usage(void);
-static int
-find_cores(struct options* opts, pid_t* pid, int* num_cores, int* num_numa, int* current_core, int* current_numa);
+static int count_packages(hwloc_topology_t* topology);
+static int find_cores(struct options* opts,
+    pid_t* pid,
+    int* num_cores,
+    int* num_numa,
+    int* num_packages,
+    int* current_core,
+    int* current_numa,
+    int* current_package);
+
 static int check_locality(struct options* opts,
                           int             num_cores,
                           int             num_numa,
@@ -69,8 +77,10 @@ int main(int argc, char** argv)
     int            num_nics;
     int            num_cores;
     int            num_numa;
+    int            num_packages;
     int            current_core;
     int            current_numa;
+    int            current_package;
     pid_t          pid;
     int            ret;
     int            i;
@@ -92,7 +102,7 @@ int main(int argc, char** argv)
     }
 
     /* get array of cpu ids */
-    ret = find_cores(&opts, &pid, &num_cores, &num_numa, &current_core, &current_numa);
+    ret = find_cores(&opts, &pid, &num_cores, &num_numa, &num_packages, &current_core, &current_numa, &current_package);
     if (ret < 0) {
         fprintf(stderr, "Error: unable to find CPUs.\n");
         return (-1);
@@ -103,8 +113,8 @@ int main(int argc, char** argv)
     printf("\t%s\n", hostname);
 
     printf("\nCPU information:\n");
-    printf("\tPID %d running on core %d of %d and NUMA domain %d of %d\n", (int)pid, current_core,
-           num_cores, current_numa, num_numa);
+    printf("\tPID %d running on core %d of %d and NUMA domain %d of %d and package %d of %d\n", (int)pid, current_core,
+           num_cores, current_numa, num_numa, current_package, num_packages);
 
     printf("\n");
     printf("Network cards:\n");
@@ -277,9 +287,11 @@ static int find_nics(struct options* opts, int* num_nics, struct nic** nics)
 }
 
 static int
-find_cores(struct options* opts, pid_t* pid, int* num_cores, int* num_numa, int* current_core, int* current_numa)
+find_cores(struct options* opts, pid_t* pid, int* num_cores, int* num_numa, int* num_packages, int* current_core, int* current_numa, int* current_package)
 {
     hwloc_topology_t     topology;
+    hwloc_obj_t          package;
+    hwloc_obj_t          covering;
     hwloc_cpuset_t       last_cpu;
     hwloc_nodeset_t      last_numa;
     hwloc_const_bitmap_t cset_all;
@@ -298,6 +310,7 @@ find_cores(struct options* opts, pid_t* pid, int* num_cores, int* num_numa, int*
     nset_all   = hwloc_topology_get_complete_nodeset(topology);
     *num_cores = hwloc_bitmap_weight(cset_all);
     *num_numa  = hwloc_bitmap_weight(nset_all);
+    *num_packages = count_packages(&topology);
 
     /* query where this process is running */
     last_cpu = hwloc_bitmap_alloc();
@@ -315,11 +328,14 @@ find_cores(struct options* opts, pid_t* pid, int* num_cores, int* num_numa, int*
         fprintf(stderr, "hwloc_get_last_cpu_location() failure.\n");
         return (-1);
     }
-    /* print the logical number of the PU where that thread runs */
-    /* extract the PU OS index from the bitmap */
+    /* extract the index from the bitmap */
     *current_core = hwloc_bitmap_first(last_cpu);
     hwloc_cpuset_to_nodeset(topology, last_cpu, last_numa);
     *current_numa = hwloc_bitmap_first(last_numa);
+    covering = hwloc_get_obj_covering_cpuset(topology, last_cpu);
+    package = hwloc_get_ancestor_obj_by_type(topology, HWLOC_OBJ_PACKAGE, covering);
+    assert(package->type == HWLOC_OBJ_PACKAGE);
+    *current_package = package->os_index;
 
 #if 0
     /* sanity check vs sched_getcpu */
@@ -429,4 +445,20 @@ static int check_locality(struct options* opts,
     hwloc_topology_destroy(topology);
 
     return (0);
+}
+
+static int count_packages(hwloc_topology_t* topology) {
+    hwloc_obj_t obj = NULL;
+    hwloc_obj_t root;
+    int package_count = 0;
+
+    root = hwloc_get_root_obj(*topology);
+    do {
+        obj = hwloc_get_next_child(*topology, root, obj);
+        if (obj && obj->type == HWLOC_OBJ_PACKAGE) {
+            package_count++;
+        }
+    } while(obj);
+
+    return(package_count);
 }

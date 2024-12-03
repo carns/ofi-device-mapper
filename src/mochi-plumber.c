@@ -30,6 +30,7 @@ static int select_nic_roundrobin(int bucket_idx, struct bucket* bucket, const ch
 static int select_nic_random(int bucket_idx, struct bucket* bucket, const char** out_nic);
 static int select_nic_bycore(hwloc_topology_t* topology, int bucket_idx, struct bucket* bucket, const char** out_nic);
 static int select_nic_byset(hwloc_topology_t* topology, int bucket_idx, struct bucket* bucket, const char** out_nic);
+static int count_packages(hwloc_topology_t* topology);
 
 int mochi_plumber_resolve_nic(const char* in_address, const char* bucket_policy, const char* nic_policy, char** out_address) {
 
@@ -359,4 +360,19 @@ static int select_nic_byset(hwloc_topology_t* topology, int bucket_idx, struct b
 
     *out_nic = bucket->nics[nic_idx];
     return(0);
+}
+
+static int count_packages(hwloc_topology_t* topology) {
+    hwloc_obj_t obj;
+    int package_count = 0;
+
+#if 0
+    for (prev=NULL, root = hwloc_get_root_obj(*topology); obj; obj = hwloc_get_next_child(topology, obj)) {
+        if (obj->type == HWLOC_OBJ_PACKAGE) {
+            package_count++;
+        }
+    }
+#endif
+
+    return(package_count);
 }
