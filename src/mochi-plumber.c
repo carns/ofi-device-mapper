@@ -174,20 +174,46 @@ int mochi_plumber_resolve_nic(const char* in_address, const char* bucket_policy,
 
 static int select_nic(hwloc_topology_t* topology, const char* bucket_policy, const char* nic_policy, int nbuckets, struct bucket* buckets, const char** out_nic) {
     int bucket_idx = 0;
+    int ret;
+    hwloc_cpuset_t       last_cpu;
+    hwloc_nodeset_t      last_numa;
 
+    /* figure out which bucket to draw from */
     if(nbuckets == 1)
         bucket_idx = 0;
     else {
         if(strcmp(bucket_policy, "numa") == 0) {
+            last_cpu = hwloc_bitmap_alloc();
+            last_numa = hwloc_bitmap_alloc();
+            assert(last_cpu && last_numa);
+
             /* select a bucket based on the numa domain that this process is
              * executing in
              */
-            /* TODO: pick back up here */
+            ret = hwloc_get_last_cpu_location(*topology, last_cpu, HWLOC_CPUBIND_THREAD);
+            if(ret < 0) {
+                hwloc_bitmap_free(last_cpu);
+                hwloc_bitmap_free(last_numa);
+                fprintf(stderr, "hwloc_get_last_cpu_location() failure.\n");
+                return(-1);
+            }
+            hwloc_cpuset_to_nodeset(*topology, last_cpu, last_numa);
+            bucket_idx = hwloc_bitmap_first(last_numa);
+            assert(bucket_idx < nbuckets);
 
+            hwloc_bitmap_free(last_cpu);
+            hwloc_bitmap_free(last_numa);
         } else {
             fprintf(stderr, "Error: inconsistent bucket policy %s.\n", bucket_policy);
             return(-1);
         }
     }
+
+    /* select a NIC from within the chosen bucket */
+    if(buckets[bucket_idx].num_nics == 1) {
+        *out_nic = buckets[bucket_idx].nics[0];
+        return(0);
+    }
+
     return(0);
 }
