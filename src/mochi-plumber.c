@@ -44,6 +44,7 @@ int mochi_plumber_resolve_nic(const char* in_address, const char* bucket_policy,
     int             ret;
     hwloc_obj_t      pci_dev;
     hwloc_obj_t      non_io_ancestor;
+    hwloc_obj_t      package_ancestor;
     int bucket_idx = 0;
     int i;
     const char* selected_nic;
@@ -82,6 +83,10 @@ int mochi_plumber_resolve_nic(const char* in_address, const char* bucket_policy,
          */
         nset_all = hwloc_topology_get_complete_nodeset(topology);
         nbuckets = hwloc_bitmap_weight(nset_all);
+    }
+    else if(strcmp(bucket_policy, "package") == 0) {
+        /* query number of packages and make a bucket for each */
+        nbuckets = count_packages(&topology);
     }
     else {
         fprintf(stderr, "mochi_plumber_resolve_nic: unknown bucket policy \"%s\"\n", bucket_policy);
@@ -142,12 +147,19 @@ int mochi_plumber_resolve_nic(const char* in_address, const char* bucket_policy,
                 /* add to the global bucket */
                 bucket_idx = 0;
             }
-            else {
+            else if(strcmp(bucket_policy, "numa") == 0){
                 /* figure out what numa domain this maps to and put it in
                  * that bucket
                  */
                 non_io_ancestor = hwloc_get_non_io_ancestor_obj(topology, pci_dev);
                 bucket_idx = hwloc_bitmap_first(non_io_ancestor->nodeset);
+            }
+            else if(strcmp(bucket_policy, "package") == 0){
+                /* figure out what package this maps to and put it in that
+                 * bucket
+                 */
+                package_ancestor = hwloc_get_ancestor_obj_by_type(topology, HWLOC_OBJ_PACKAGE, pci_dev);
+                bucket_idx = package_ancestor->os_index;
             }
 
             buckets[bucket_idx].num_nics++;
@@ -194,6 +206,8 @@ static int select_nic(hwloc_topology_t* topology, const char* bucket_policy, con
     int ret;
     hwloc_cpuset_t       last_cpu;
     hwloc_nodeset_t      last_numa;
+    hwloc_obj_t          package;
+    hwloc_obj_t          covering;
 
     /* figure out which bucket to draw from */
     if(nbuckets == 1)
@@ -220,7 +234,29 @@ static int select_nic(hwloc_topology_t* topology, const char* bucket_policy, con
 
             hwloc_bitmap_free(last_cpu);
             hwloc_bitmap_free(last_numa);
-        } else {
+        } else if(strcmp(bucket_policy, "package") == 0) {
+            last_cpu = hwloc_bitmap_alloc();
+            assert(last_cpu);
+
+            /* select a bucket based on the package that this process is
+             * executing in
+             */
+            ret = hwloc_get_last_cpu_location(*topology, last_cpu, HWLOC_CPUBIND_THREAD);
+            if(ret < 0) {
+                hwloc_bitmap_free(last_cpu);
+                fprintf(stderr, "hwloc_get_last_cpu_location() failure.\n");
+                return(-1);
+            }
+            covering = hwloc_get_obj_covering_cpuset(*topology, last_cpu);
+            package = hwloc_get_ancestor_obj_by_type(*topology, HWLOC_OBJ_PACKAGE, covering);
+
+            bucket_idx = package->os_index;
+            assert(bucket_idx < nbuckets);
+
+
+            hwloc_bitmap_free(last_cpu);
+        }
+        else {
             fprintf(stderr, "Error: inconsistent bucket policy %s.\n", bucket_policy);
             return(-1);
         }
@@ -363,16 +399,17 @@ static int select_nic_byset(hwloc_topology_t* topology, int bucket_idx, struct b
 }
 
 static int count_packages(hwloc_topology_t* topology) {
-    hwloc_obj_t obj;
+    hwloc_obj_t obj = NULL;
+    hwloc_obj_t root;
     int package_count = 0;
 
-#if 0
-    for (prev=NULL, root = hwloc_get_root_obj(*topology); obj; obj = hwloc_get_next_child(topology, obj)) {
-        if (obj->type == HWLOC_OBJ_PACKAGE) {
+    root = hwloc_get_root_obj(*topology);
+    do {
+        obj = hwloc_get_next_child(*topology, root, obj);
+        if (obj && obj->type == HWLOC_OBJ_PACKAGE) {
             package_count++;
         }
-    }
-#endif
+    } while(obj);
 
     return(package_count);
 }

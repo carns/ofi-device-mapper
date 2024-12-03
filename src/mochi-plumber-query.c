@@ -41,6 +41,10 @@ struct test_combo test_combos[] = {
     {.bucket_policy = "all", .nic_policy = "random" },
     {.bucket_policy = "all", .nic_policy = "bycore" },
     {.bucket_policy = "all", .nic_policy = "byset" },
+    {.bucket_policy = "package", .nic_policy = "roundrobin" },
+    {.bucket_policy = "package", .nic_policy = "random" },
+    {.bucket_policy = "package", .nic_policy = "bycore" },
+    {.bucket_policy = "package", .nic_policy = "byset" },
     {.bucket_policy = "numa", .nic_policy = "roundrobin" },
     {.bucket_policy = "numa", .nic_policy = "random" },
     {.bucket_policy = "numa", .nic_policy = "bycore" },
@@ -142,17 +146,21 @@ int main(int argc, char** argv)
     i=0;
     while(test_combos[i].bucket_policy) {
         ret = mochi_plumber_resolve_nic(in_addr, test_combos[i].bucket_policy, test_combos[i].nic_policy, &out_addr);
-        if(ret < 0) {
-            fprintf(stderr, "Error: mochi_plumber_resolve_nic() failure\n");
-            return(-1);
+        if(ret == 0) {
+            printf("\t%10s\t%12s\t%s\t%s\n",
+                test_combos[i].bucket_policy,
+                test_combos[i].nic_policy,
+                in_addr,
+                out_addr);
+            if(out_addr) free(out_addr);
+            out_addr = NULL;
         }
-        printf("\t%6s\t%12s\t%s\t%s\n",
-            test_combos[i].bucket_policy,
-            test_combos[i].nic_policy,
-            in_addr,
-            out_addr);
-        if(out_addr) free(out_addr);
-        out_addr = NULL;
+        else {
+            printf("\t%10s\t%12s\t%s\tN/A\n",
+                test_combos[i].bucket_policy,
+                test_combos[i].nic_policy,
+                in_addr);
+        }
         i++;
     }
 
