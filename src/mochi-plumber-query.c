@@ -112,7 +112,7 @@ int main(int argc, char** argv)
     printf("\n");
     snprintf(in_addr, 256, "%s://", opts.prov_name);
 
-    bucket_policy = "all";
+    bucket_policy = "numa";
     nic_policy = "roundrobin";
     ret = mochi_plumber_resolve_nic(in_addr, bucket_policy, nic_policy, &out_addr);
     if(ret < 0) {
