@@ -40,9 +40,11 @@ struct test_combo test_combos[] = {
     {.bucket_policy = "all", .nic_policy = "roundrobin" },
     {.bucket_policy = "all", .nic_policy = "random" },
     {.bucket_policy = "all", .nic_policy = "bycore" },
+    {.bucket_policy = "all", .nic_policy = "byset" },
     {.bucket_policy = "numa", .nic_policy = "roundrobin" },
     {.bucket_policy = "numa", .nic_policy = "random" },
     {.bucket_policy = "numa", .nic_policy = "bycore" },
+    {.bucket_policy = "numa", .nic_policy = "byset" },
     {0}
 };
 

@@ -29,6 +29,7 @@ static int select_nic(hwloc_topology_t* topology, const char* bucket_policy, con
 static int select_nic_roundrobin(int bucket_idx, struct bucket* bucket, const char** out_nic);
 static int select_nic_random(int bucket_idx, struct bucket* bucket, const char** out_nic);
 static int select_nic_bycore(hwloc_topology_t* topology, int bucket_idx, struct bucket* bucket, const char** out_nic);
+static int select_nic_byset(hwloc_topology_t* topology, int bucket_idx, struct bucket* bucket, const char** out_nic);
 
 int mochi_plumber_resolve_nic(const char* in_address, const char* bucket_policy, const char* nic_policy, char** out_address) {
 
@@ -239,6 +240,9 @@ static int select_nic(hwloc_topology_t* topology, const char* bucket_policy, con
     else if(strcmp(nic_policy, "bycore") == 0) {
         ret = select_nic_bycore(topology, bucket_idx, &buckets[bucket_idx], out_nic);
     }
+    else if(strcmp(nic_policy, "byset") == 0) {
+        ret = select_nic_byset(topology, bucket_idx, &buckets[bucket_idx], out_nic);
+    }
     else {
         fprintf(stderr, "Error: unknown nic_policy \"%s\"\n", nic_policy);
         ret = -1;
@@ -311,6 +315,9 @@ static int select_nic_random(int bucket_idx, struct bucket* bucket, const char**
     return(0);
 }
 
+/* static mapping based on what specific core the process is presently
+ * runnign on.
+ */
 static int select_nic_bycore(hwloc_topology_t* topology, int bucket_idx, struct bucket* bucket, const char** out_nic) {
     int nic_idx = -1;
     int ret;
@@ -327,6 +334,28 @@ static int select_nic_bycore(hwloc_topology_t* topology, int bucket_idx, struct 
     }
     nic_idx = hwloc_bitmap_first(last_cpu) % bucket->num_nics;
     hwloc_bitmap_free(last_cpu);
+
+    *out_nic = bucket->nics[nic_idx];
+    return(0);
+}
+
+/* static mapping based on the set of cores the process is allowed to run on */
+static int select_nic_byset(hwloc_topology_t* topology, int bucket_idx, struct bucket* bucket, const char** out_nic) {
+    int nic_idx = -1;
+    int ret;
+    hwloc_cpuset_t       cpuset;
+
+    cpuset = hwloc_bitmap_alloc();
+    assert(cpuset);
+
+    ret = hwloc_get_cpubind(*topology, cpuset, HWLOC_CPUBIND_PROCESS);
+    if(ret < 0) {
+        hwloc_bitmap_free(cpuset);
+        fprintf(stderr, "hwloc_get_cpuset_location() failure.\n");
+        return(-1);
+    }
+    nic_idx = hwloc_bitmap_first(cpuset) % bucket->num_nics;
+    hwloc_bitmap_free(cpuset);
 
     *out_nic = bucket->nics[nic_idx];
     return(0);
