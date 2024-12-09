@@ -5,8 +5,8 @@ includedir=@includedir@
 
 Name: mochi-plumber
 Description: mapping hardware resources to processes
-Version: 0.1
+Version: 0.1.1
 URL: http://www.mcs.anl.gov/research/projects/mochi
-Libs: -L${libdir} -lmochi-placement
+Libs: -L${libdir} -lmochi-plumber
 Libs.private: @LDFLAGS@ @LIBS@
 Cflags: -I${includedir} @CPPFLAGS@
