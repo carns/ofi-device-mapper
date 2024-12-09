@@ -36,21 +36,20 @@ struct test_combo {
     const char* nic_policy;
 };
 
-struct test_combo test_combos[] = {
-    {.bucket_policy = "all", .nic_policy = "roundrobin" },
-    {.bucket_policy = "all", .nic_policy = "random" },
-    {.bucket_policy = "all", .nic_policy = "bycore" },
-    {.bucket_policy = "all", .nic_policy = "byset" },
-    {.bucket_policy = "package", .nic_policy = "roundrobin" },
-    {.bucket_policy = "package", .nic_policy = "random" },
-    {.bucket_policy = "package", .nic_policy = "bycore" },
-    {.bucket_policy = "package", .nic_policy = "byset" },
-    {.bucket_policy = "numa", .nic_policy = "roundrobin" },
-    {.bucket_policy = "numa", .nic_policy = "random" },
-    {.bucket_policy = "numa", .nic_policy = "bycore" },
-    {.bucket_policy = "numa", .nic_policy = "byset" },
-    {0}
-};
+struct test_combo test_combos[]
+    = {{.bucket_policy = "all", .nic_policy = "roundrobin"},
+       {.bucket_policy = "all", .nic_policy = "random"},
+       {.bucket_policy = "all", .nic_policy = "bycore"},
+       {.bucket_policy = "all", .nic_policy = "byset"},
+       {.bucket_policy = "package", .nic_policy = "roundrobin"},
+       {.bucket_policy = "package", .nic_policy = "random"},
+       {.bucket_policy = "package", .nic_policy = "bycore"},
+       {.bucket_policy = "package", .nic_policy = "byset"},
+       {.bucket_policy = "numa", .nic_policy = "roundrobin"},
+       {.bucket_policy = "numa", .nic_policy = "random"},
+       {.bucket_policy = "numa", .nic_policy = "bycore"},
+       {.bucket_policy = "numa", .nic_policy = "byset"},
+       {0}};
 
 #if 0
 static int print_short_info(struct fi_info* info);
@@ -58,15 +57,15 @@ static int print_short_info(struct fi_info* info);
 static int  parse_args(int argc, char** argv, struct options* opts);
 static int  find_nics(struct options* opts, int* num_nics, struct nic** nics);
 static void usage(void);
-static int count_packages(hwloc_topology_t* topology);
-static int find_cores(struct options* opts,
-    pid_t* pid,
-    int* num_cores,
-    int* num_numa,
-    int* num_packages,
-    int* current_core,
-    int* current_numa,
-    int* current_package);
+static int  count_packages(hwloc_topology_t* topology);
+static int  find_cores(struct options* opts,
+                       pid_t*          pid,
+                       int*            num_cores,
+                       int*            num_numa,
+                       int*            num_packages,
+                       int*            current_core,
+                       int*            current_numa,
+                       int*            current_package);
 
 static int check_locality(struct options* opts,
                           int             num_cores,
@@ -90,8 +89,8 @@ int main(int argc, char** argv)
     int            ret;
     int            i;
     char           hostname[256] = {0};
-    char           in_addr[256] = {0};
-    char           *out_addr = NULL;
+    char           in_addr[256]  = {0};
+    char*          out_addr      = NULL;
 
     ret = parse_args(argc, argv, &opts);
     if (ret < 0) {
@@ -107,7 +106,8 @@ int main(int argc, char** argv)
     }
 
     /* get array of cpu ids */
-    ret = find_cores(&opts, &pid, &num_cores, &num_numa, &num_packages, &current_core, &current_numa, &current_package);
+    ret = find_cores(&opts, &pid, &num_cores, &num_numa, &num_packages,
+                     &current_core, &current_numa, &current_package);
     if (ret < 0) {
         fprintf(stderr, "Error: unable to find CPUs.\n");
         return (-1);
@@ -118,8 +118,11 @@ int main(int argc, char** argv)
     printf("\t%s\n", hostname);
 
     printf("\nCPU information:\n");
-    printf("\tPID %d running on core %d of %d and NUMA domain %d of %d and package %d of %d\n", (int)pid, current_core,
-           num_cores, current_numa, num_numa, current_package, num_packages);
+    printf(
+        "\tPID %d running on core %d of %d and NUMA domain %d of %d and "
+        "package %d of %d\n",
+        (int)pid, current_core, num_cores, current_numa, num_numa,
+        current_package, num_packages);
 
     printf("\n");
     printf("Network cards:\n");
@@ -130,7 +133,8 @@ int main(int argc, char** argv)
     }
 
     /* check locality of all permutations */
-    ret = check_locality(&opts, num_cores, num_numa, num_packages, num_nics, nics);
+    ret = check_locality(&opts, num_cores, num_numa, num_packages, num_nics,
+                         nics);
     if (ret < 0) {
         fprintf(stderr, "Error: check_locality() failure.\n");
         return (-1);
@@ -143,27 +147,21 @@ int main(int argc, char** argv)
     printf("\t#<bucket policy>\t<NIC policy>\t<in addr>\t<out addr>\n");
 
     snprintf(in_addr, 256, "%s://", opts.prov_name);
-    i=0;
-    while(test_combos[i].bucket_policy) {
-        ret = mochi_plumber_resolve_nic(in_addr, test_combos[i].bucket_policy, test_combos[i].nic_policy, &out_addr);
-        if(ret == 0) {
-            printf("\t%10s\t%12s\t%s\t%s\n",
-                test_combos[i].bucket_policy,
-                test_combos[i].nic_policy,
-                in_addr,
-                out_addr);
-            if(out_addr) free(out_addr);
+    i = 0;
+    while (test_combos[i].bucket_policy) {
+        ret = mochi_plumber_resolve_nic(in_addr, test_combos[i].bucket_policy,
+                                        test_combos[i].nic_policy, &out_addr);
+        if (ret == 0) {
+            printf("\t%10s\t%12s\t%s\t%s\n", test_combos[i].bucket_policy,
+                   test_combos[i].nic_policy, in_addr, out_addr);
+            if (out_addr) free(out_addr);
             out_addr = NULL;
-        }
-        else {
-            printf("\t%10s\t%12s\t%s\tN/A\n",
-                test_combos[i].bucket_policy,
-                test_combos[i].nic_policy,
-                in_addr);
+        } else {
+            printf("\t%10s\t%12s\t%s\tN/A\n", test_combos[i].bucket_policy,
+                   test_combos[i].nic_policy, in_addr);
         }
         i++;
     }
-
 
     return (0);
 }
@@ -295,8 +293,14 @@ static int find_nics(struct options* opts, int* num_nics, struct nic** nics)
     return (0);
 }
 
-static int
-find_cores(struct options* opts, pid_t* pid, int* num_cores, int* num_numa, int* num_packages, int* current_core, int* current_numa, int* current_package)
+static int find_cores(struct options* opts,
+                      pid_t*          pid,
+                      int*            num_cores,
+                      int*            num_numa,
+                      int*            num_packages,
+                      int*            current_core,
+                      int*            current_numa,
+                      int*            current_package)
 {
     hwloc_topology_t     topology;
     hwloc_obj_t          package;
@@ -315,10 +319,10 @@ find_cores(struct options* opts, pid_t* pid, int* num_cores, int* num_numa, int*
     hwloc_topology_load(topology);
 
     /* query all PUs */
-    cset_all   = hwloc_topology_get_complete_cpuset(topology);
-    nset_all   = hwloc_topology_get_complete_nodeset(topology);
-    *num_cores = hwloc_bitmap_weight(cset_all);
-    *num_numa  = hwloc_bitmap_weight(nset_all);
+    cset_all      = hwloc_topology_get_complete_cpuset(topology);
+    nset_all      = hwloc_topology_get_complete_nodeset(topology);
+    *num_cores    = hwloc_bitmap_weight(cset_all);
+    *num_numa     = hwloc_bitmap_weight(nset_all);
     *num_packages = count_packages(&topology);
 
     /* query where this process is running */
@@ -341,8 +345,9 @@ find_cores(struct options* opts, pid_t* pid, int* num_cores, int* num_numa, int*
     *current_core = hwloc_bitmap_first(last_cpu);
     hwloc_cpuset_to_nodeset(topology, last_cpu, last_numa);
     *current_numa = hwloc_bitmap_first(last_numa);
-    covering = hwloc_get_obj_covering_cpuset(topology, last_cpu);
-    package = hwloc_get_ancestor_obj_by_type(topology, HWLOC_OBJ_PACKAGE, covering);
+    covering      = hwloc_get_obj_covering_cpuset(topology, last_cpu);
+    package
+        = hwloc_get_ancestor_obj_by_type(topology, HWLOC_OBJ_PACKAGE, covering);
     assert(package->type == HWLOC_OBJ_PACKAGE);
     *current_package = package->os_index;
 
@@ -362,7 +367,7 @@ find_cores(struct options* opts, pid_t* pid, int* num_cores, int* num_numa, int*
 
 static int check_locality(struct options* opts,
                           int             num_cores,
-			  int             num_numa,
+                          int             num_numa,
                           int             num_packages,
                           int             num_nics,
                           struct nic*     nics)
@@ -383,7 +388,7 @@ static int check_locality(struct options* opts,
     assert(ret == 0);
     hwloc_topology_load(topology);
 
-    cpu = hwloc_bitmap_alloc();
+    cpu  = hwloc_bitmap_alloc();
     numa = hwloc_bitmap_alloc();
 
     printf("\nCore locality map:\n");
@@ -434,7 +439,8 @@ static int check_locality(struct options* opts,
             return (-1);
         }
 
-        /* loop through every possible numa id and check if it reports its locality to each nic.
+        /* loop through every possible numa id and check if it reports its
+         * locality to each nic.
          */
         printf("\t%s ", nics[i].iface_name);
         for (j = 0; j < num_numa; j++) {
@@ -460,7 +466,8 @@ static int check_locality(struct options* opts,
                                             nics[i].bus_id, nics[i].device_id,
                                             nics[i].function_id);
         if (pci_dev)
-            package_ancestor = hwloc_get_ancestor_obj_by_type(topology, HWLOC_OBJ_PACKAGE, pci_dev);
+            package_ancestor = hwloc_get_ancestor_obj_by_type(
+                topology, HWLOC_OBJ_PACKAGE, pci_dev);
         else {
             fprintf(stderr, "Error: could not find pci_dev in topology.\n");
             return (-1);
@@ -479,7 +486,6 @@ static int check_locality(struct options* opts,
         printf("\n");
     }
 
-
     hwloc_bitmap_free(cpu);
     hwloc_bitmap_free(numa);
     hwloc_topology_destroy(topology);
@@ -487,18 +493,17 @@ static int check_locality(struct options* opts,
     return (0);
 }
 
-static int count_packages(hwloc_topology_t* topology) {
+static int count_packages(hwloc_topology_t* topology)
+{
     hwloc_obj_t obj = NULL;
     hwloc_obj_t root;
-    int package_count = 0;
+    int         package_count = 0;
 
     root = hwloc_get_root_obj(*topology);
     do {
         obj = hwloc_get_next_child(*topology, root, obj);
-        if (obj && obj->type == HWLOC_OBJ_PACKAGE) {
-            package_count++;
-        }
-    } while(obj);
+        if (obj && obj->type == HWLOC_OBJ_PACKAGE) { package_count++; }
+    } while (obj);
 
-    return(package_count);
+    return (package_count);
 }

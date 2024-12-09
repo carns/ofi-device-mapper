@@ -22,7 +22,10 @@ extern "C" {
  * @param [in] nic_policy policy for nic selection within bucket
  * @param [out] out_address output address string (to be freed by caller)
  */
-int mochi_plumber_resolve_nic(const char* in_address, const char* bucket_policy, const char* nic_policy, char** out_address);
+int mochi_plumber_resolve_nic(const char* in_address,
+                              const char* bucket_policy,
+                              const char* nic_policy,
+                              char**      out_address);
 
 #ifdef __cplusplus
 }
