@@ -32,6 +32,7 @@ static int select_nic_bycore(hwloc_topology_t* topology, int bucket_idx, struct 
 static int select_nic_byset(hwloc_topology_t* topology, int bucket_idx, struct bucket* bucket, const char** out_nic);
 static int count_packages(hwloc_topology_t* topology);
 static int setup_buckets(hwloc_topology_t* topology, const char* bucket_policy, int* nbuckets, struct bucket** buckets);
+static void release_buckets(int nbuckets, struct bucket* buckets);
 
 int mochi_plumber_resolve_nic(const char* in_address, const char* bucket_policy, const char* nic_policy, char** out_address) {
 
@@ -77,8 +78,7 @@ int mochi_plumber_resolve_nic(const char* in_address, const char* bucket_policy,
     for(i=0; i<nbuckets; i++) {
         if(buckets[i].num_nics < 1) {
             fprintf(stderr, "Error: bucket %d has no NICs\n", i);
-            /* TODO: bucket cleanup */
-            free(buckets);
+            release_buckets(nbuckets, buckets);
             hwloc_topology_destroy(topology);
             return(-1);
         }
@@ -87,19 +87,17 @@ int mochi_plumber_resolve_nic(const char* in_address, const char* bucket_policy,
     ret = select_nic(&topology, bucket_policy, nic_policy, nbuckets, buckets, &selected_nic);
     if(ret < 0) {
         fprintf(stderr, "Error: failed to select NIC.\n");
-        /* TODO: bucket cleanup */
-        free(buckets);
+        release_buckets(nbuckets, buckets);
         hwloc_topology_destroy(topology);
         return(-1);
     }
 
-    /* TODO: bucket cleanup */
-    free(buckets);
-    hwloc_topology_destroy(topology);
-
-    /* generate new address! */
+    /* generate new address with specific nic */
     *out_address = malloc(strlen(in_address) + strlen(selected_nic) + 1);
     sprintf(*out_address, "%s%s", in_address, selected_nic);
+
+    release_buckets(nbuckets, buckets);
+    hwloc_topology_destroy(topology);
 
     return(0);
 }
@@ -399,7 +397,7 @@ static int setup_buckets(hwloc_topology_t* topology, const char* bucket_policy, 
                     if((*buckets)[i].nics)
                         free((*buckets)[i].nics);
                 }
-                free(buckets);
+                free(*buckets);
                 return(-1);
             }
             if(*nbuckets == 1) {
@@ -430,4 +428,16 @@ static int setup_buckets(hwloc_topology_t* topology, const char* bucket_policy, 
     fi_freeinfo(info);
 
     return(0);
+}
+
+static void release_buckets(int nbuckets, struct bucket* buckets) {
+    int i;
+
+    for(i=0; i<nbuckets; i++){
+        if(buckets[i].nics)
+            free(buckets[i].nics);
+    }
+    free(buckets);
+
+    return;
 }
