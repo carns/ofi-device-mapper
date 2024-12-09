@@ -71,5 +71,5 @@ if test "$enable_coverage" = "yes" ; then
     LDFLAGS="--coverage -lgcov"
 fi
 
-AC_CONFIG_FILES([Makefile])
+AC_CONFIG_FILES([Makefile maint/mochi-plumber.pc])
 AC_OUTPUT

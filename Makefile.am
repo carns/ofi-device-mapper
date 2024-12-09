@@ -37,7 +37,7 @@ src_libmochi_plumber_la_SOURCES =
 LDADD = src/libmochi-plumber.la
 
 pkgconfigdir = $(libdir)/pkgconfig
-pkgconfig_DATA =
+pkgconfig_DATA = maint/mochi-plumber.pc
 
 include Make.rules
 
