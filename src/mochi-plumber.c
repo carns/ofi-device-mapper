@@ -420,9 +420,10 @@ static int setup_buckets(hwloc_topology_t* topology, const char* bucket_policy, 
             }
 
             (*buckets)[bucket_idx].num_nics++;
-            /* TODO: err handling */
             (*buckets)[bucket_idx].nics = realloc((*buckets)[bucket_idx].nics, (*buckets)[bucket_idx].num_nics*sizeof(*(*buckets)[bucket_idx].nics));
+            assert((*buckets)[bucket_idx].nics);
             (*buckets)[bucket_idx].nics[(*buckets)[bucket_idx].num_nics-1] = strdup(cur->domain_attr->name);
+            assert((*buckets)[bucket_idx].nics[(*buckets)[bucket_idx].num_nics-1]);
         }
     }
     fi_freeinfo(info);
