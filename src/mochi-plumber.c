@@ -374,7 +374,7 @@ static int setup_buckets(hwloc_topology_t* topology, const char* bucket_policy, 
     if (ret != 0) {
         fprintf(stderr, "fi_getinfo: %d (%s)\n", ret, fi_strerror(-ret));
         fi_freeinfo(hints);
-        free(buckets);
+        free(*buckets);
         return (ret);
     }
     fi_freeinfo(hints);
