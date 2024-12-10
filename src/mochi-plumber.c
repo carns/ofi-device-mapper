@@ -97,10 +97,21 @@ int mochi_plumber_resolve_nic(const char* in_address,
     /* sanity check: every bucket must have at least one NIC */
     for (i = 0; i < nbuckets; i++) {
         if (buckets[i].num_nics < 1) {
-            fprintf(stderr, "Error: bucket %d has no NICs\n", i);
+            // fprintf(stderr, "Error: bucket %d has no NICs\n", i);
+
+            /* If we hit this point, then the node configuration is such
+             * that we shouldn't be attempting to select network cards with
+             * the specified policy (some buckets have no network cards
+             * assigned to them).  Silently pass through input address.
+             *
+             * TODO: should this be a warning?  The "all" bucket policy
+             * would have been fine.  Does matter on any known systems as of
+             * December 2024.
+             */
             release_buckets(nbuckets, buckets);
             hwloc_topology_destroy(topology);
-            return (-1);
+            *out_address = strdup(in_address);
+            return (0);
         }
     }
 
