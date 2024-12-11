@@ -49,6 +49,7 @@ struct test_combo test_combos[]
        {.bucket_policy = "numa", .nic_policy = "random"},
        {.bucket_policy = "numa", .nic_policy = "bycore"},
        {.bucket_policy = "numa", .nic_policy = "byset"},
+       {.bucket_policy = "passthrough", .nic_policy = "passthrough"},
        {0}};
 
 #if 0

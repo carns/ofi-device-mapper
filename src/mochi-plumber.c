@@ -64,6 +64,13 @@ int mochi_plumber_resolve_nic(const char* in_address,
     int              i;
     const char*      selected_nic;
 
+    /* skip resolution if either policy is set to passthrough */
+    if (strcmp(nic_policy, "passthrough") == 0
+        || strcmp(bucket_policy, "passthrough") == 0) {
+        *out_address = strdup(in_address);
+        return (0);
+    }
+
     /* for now we only manipulate CXI addresses */
     if (strncmp(in_address, "cxi", strlen("cxi")) != 0
         && strncmp(in_address, "ofi+cxi", strlen("ofi+cxi")) != 0) {
