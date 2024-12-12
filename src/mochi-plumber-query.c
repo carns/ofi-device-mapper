@@ -90,7 +90,6 @@ int main(int argc, char** argv)
     int            ret;
     int            i;
     char           hostname[256] = {0};
-    char           in_addr[256]  = {0};
     char*          out_addr      = NULL;
 
     ret = parse_args(argc, argv, &opts);
@@ -147,19 +146,19 @@ int main(int argc, char** argv)
     printf("\nmochi_plumber_resolve_nic() test cases:\n");
     printf("\t#<bucket policy>\t<NIC policy>\t<in addr>\t<out addr>\n");
 
-    snprintf(in_addr, 256, "%s://", opts.prov_name);
     i = 0;
     while (test_combos[i].bucket_policy) {
-        ret = mochi_plumber_resolve_nic(in_addr, test_combos[i].bucket_policy,
+        ret = mochi_plumber_resolve_nic(opts.prov_name,
+                                        test_combos[i].bucket_policy,
                                         test_combos[i].nic_policy, &out_addr);
         if (ret == 0) {
             printf("\t%10s\t%12s\t%s\t%s\n", test_combos[i].bucket_policy,
-                   test_combos[i].nic_policy, in_addr, out_addr);
+                   test_combos[i].nic_policy, opts.prov_name, out_addr);
             if (out_addr) free(out_addr);
             out_addr = NULL;
         } else {
             printf("\t%10s\t%12s\t%s\tN/A\n", test_combos[i].bucket_policy,
-                   test_combos[i].nic_policy, in_addr);
+                   test_combos[i].nic_policy, opts.prov_name);
         }
         i++;
     }
