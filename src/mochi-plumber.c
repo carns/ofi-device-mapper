@@ -51,6 +51,24 @@ static int  setup_buckets(hwloc_topology_t* topology,
                           struct bucket**   buckets);
 static void release_buckets(int nbuckets, struct bucket* buckets);
 
+static char* canonicalize_addr_string(const char* in_address)
+{
+    char* found = NULL;
+    char* canon = NULL;
+
+    found = strstr(in_address, "://");
+    if (found) return (strdup(in_address));
+
+    /* assume that if there is no :// present in the address string, then
+     * the string must just be an na identifier for Mercury.  Append a "://"
+     * to a new string and return it.
+     */
+    canon = malloc(strlen(in_address) + 4);
+    if (!canon) return (NULL);
+    sprintf(canon, "%s://", in_address);
+    return (canon);
+}
+
 int mochi_plumber_resolve_nic(const char* in_address,
                               const char* bucket_policy,
                               const char* nic_policy,
@@ -63,27 +81,31 @@ int mochi_plumber_resolve_nic(const char* in_address,
     int              ret;
     int              i;
     const char*      selected_nic;
+    char*            canon_address;
+
+    canon_address = canonicalize_addr_string(in_address);
+    if (!canon_address) return (-1);
 
     /* skip resolution if either policy is set to passthrough */
     if (strcmp(nic_policy, "passthrough") == 0
         || strcmp(bucket_policy, "passthrough") == 0) {
-        *out_address = strdup(in_address);
+        *out_address = canon_address;
         return (0);
     }
 
     /* for now we only manipulate CXI addresses */
-    if (strncmp(in_address, "cxi", strlen("cxi")) != 0
-        && strncmp(in_address, "ofi+cxi", strlen("ofi+cxi")) != 0) {
+    if (strncmp(canon_address, "cxi", strlen("cxi")) != 0
+        && strncmp(canon_address, "ofi+cxi", strlen("ofi+cxi")) != 0) {
         /* don't know what this is; just pass it through */
-        *out_address = strdup(in_address);
+        *out_address = canon_address;
         return (0);
     }
 
     /* check to make sure the input address is not specific already */
-    if (in_address[strlen(in_address) - 1] != '/'
-        || in_address[strlen(in_address) - 2] != '/') {
+    if (canon_address[strlen(canon_address) - 1] != '/'
+        || canon_address[strlen(canon_address) - 2] != '/') {
         /* the address is already resolved to some degree; don't touch it */
-        *out_address = strdup(in_address);
+        *out_address = canon_address;
         return (0);
     }
 
@@ -98,6 +120,7 @@ int mochi_plumber_resolve_nic(const char* in_address,
     if (ret < 0) {
         fprintf(stderr, "Error: setup_buckets() failure.\n");
         hwloc_topology_destroy(topology);
+        free(canon_address);
         return (-1);
     }
 
@@ -117,7 +140,7 @@ int mochi_plumber_resolve_nic(const char* in_address,
              */
             release_buckets(nbuckets, buckets);
             hwloc_topology_destroy(topology);
-            *out_address = strdup(in_address);
+            *out_address = canon_address;
             return (0);
         }
     }
@@ -128,16 +151,18 @@ int mochi_plumber_resolve_nic(const char* in_address,
         fprintf(stderr, "Error: failed to select NIC.\n");
         release_buckets(nbuckets, buckets);
         hwloc_topology_destroy(topology);
+        free(canon_address);
         return (-1);
     }
 
     /* generate new address with specific nic */
-    *out_address = malloc(strlen(in_address) + strlen(selected_nic) + 1);
-    sprintf(*out_address, "%s%s", in_address, selected_nic);
+    *out_address = malloc(strlen(canon_address) + strlen(selected_nic) + 1);
+    sprintf(*out_address, "%s%s", canon_address, selected_nic);
 
     release_buckets(nbuckets, buckets);
     hwloc_topology_destroy(topology);
 
+    free(canon_address);
     return (0);
 }
 
